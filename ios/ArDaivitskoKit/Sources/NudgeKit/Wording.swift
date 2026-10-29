@@ -39,13 +39,37 @@ public struct Wording: Sendable {
         formatter(template: "MMMMyyyy", timeZone: Self.utc.timeZone).string(from: day.start(in: Self.utc))
     }
 
-    /// "Today", "Tomorrow", "Yesterday", or the short day.
-    public func relativeDay(_ day: Day, today: Day) -> String {
-        switch today.days(until: day) {
+    /// "Today", "Tomorrow", "Yesterday", or the short day; in lower case mid-sentence.
+    public func relativeDay(_ day: Day, today: Day, midSentence: Bool = false) -> String {
+        let word: String? = switch today.days(until: day) {
         case 0: "Today"
         case 1: "Tomorrow"
         case -1: "Yesterday"
-        default: self.day(day)
+        default: nil
+        }
+        guard let word else { return self.day(day) }
+        return midSentence ? word.lowercased() : word
+    }
+
+    /// When a nudge comes: "13:00" today, "tomorrow 10:00", "30 Oct 10:00".
+    public func when(_ date: Date, today: Day) -> String {
+        let day = Day(date, in: calendar)
+        return day == today ? time(date) : "\(relativeDay(day, today: today, midSentence: true)) \(time(date))"
+    }
+
+    /// What's next for an occurrence: "Next nudge 13:00", "Alarm 23:00", "Heads-up tomorrow 19:00".
+    public func next(_ nudge: Nudge, today: Day) -> String {
+        "\(name(of: nudge.kind, leading: true)) \(when(nudge.date, today: today))"
+    }
+
+    /// A nudge's kind in words: "Nudge", "Heads-up", "Final hours", "Alarm", "Deadline passed".
+    public func name(of kind: Nudge.Kind, leading: Bool = false) -> String {
+        switch kind {
+        case .regular, .overdue: leading ? "Next nudge" : "Nudge"
+        case .headsUp: "Heads-up"
+        case .final: "Final hours"
+        case .alarm: "Alarm"
+        case .deadlinePassed: "Deadline passed"
         }
     }
 

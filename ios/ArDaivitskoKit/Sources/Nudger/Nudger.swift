@@ -20,6 +20,23 @@ public protocol DeadlineAlarmScheduling: AnyObject {
     func sync(_ alarms: [ScheduledNudge], wording: Wording) async -> [ScheduledNudge]
     /// Silences an answered occurrence's alarm if it's sounding.
     func stop(occurrenceID: String)
+    /// What the phone allows, for the Settings screen.
+    var permission: AlarmPermission { get }
+}
+
+public extension DeadlineAlarmScheduling {
+    var permission: AlarmPermission {
+        isAvailable ? .authorized : .unavailable
+    }
+}
+
+/// Whether a Can't-miss task's alarm can sound as an alarm.
+public enum AlarmPermission: Equatable, Sendable {
+    /// Before iOS 26 there are no alarms for apps: it's a time-sensitive notification.
+    case unavailable
+    case notDetermined
+    case denied
+    case authorized
 }
 
 /// The tasks and everything that follows them: the pending notifications, the alarms and the

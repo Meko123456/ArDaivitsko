@@ -45,6 +45,17 @@ struct AgendaTests {
         #expect(OccurrenceRef("3F2504E0-4F89-11D3-9A0C-0305E82C3301") == .saved("3F2504E0-4F89-11D3-9A0C-0305E82C3301"))
     }
 
+    @Test("A reference finds a saved occurrence, or a repeat's, saved since or not")
+    func findByRef() {
+        let weekly = task("Review", first: today, repeats: .weekly, saved: [saved("Review", on: today.adding(days: 7), state: .done)])
+        #expect(Agenda.occurrence("Review-\(today.adding(days: 7).key)", in: [weekly])?.state == .done)
+        // The repeat's day named by task and day finds the saved one once it exists.
+        #expect(Agenda.occurrence("Review@\(today.adding(days: 7).key)", in: [weekly])?.state == .done)
+        #expect(Agenda.occurrence("Review@\(today.adding(days: 14).key)", in: [weekly])?.id == "Review@\(today.adding(days: 14).key)")
+        #expect(Agenda.occurrence("Review@\(today.adding(days: 3).key)", in: [weekly]) == nil)
+        #expect(Agenda.occurrence("missing", in: [weekly]) == nil)
+    }
+
     @Test("A repeat changed by an edit makes no occurrences before the edit's day")
     func since() {
         var daily = task("Stretch", first: today.adding(days: -10), repeats: .daily)
@@ -90,6 +101,16 @@ struct WordingTests {
         #expect(british.day(Day(2026, 10, 28)) == "28 Oct")
         #expect(american.day(Day(2026, 10, 28)) == "Oct 28")
         #expect(british.relativeDay(today.adding(days: 1), today: today) == "Tomorrow")
+    }
+
+    @Test("What comes next, today or on another day")
+    func next() {
+        #expect(british.next(Nudge(date: at(today, 13, 0), kind: .regular), today: today) == "Next nudge 13:00")
+        #expect(british.next(Nudge(date: at(today.adding(days: 1), 10, 0), kind: .overdue), today: today) == "Next nudge tomorrow 10:00")
+        #expect(british.next(Nudge(date: at(today, 23, 0), kind: .alarm), today: today) == "Alarm 23:00")
+        #expect(british.next(Nudge(date: at(today.adding(days: 3), 19, 0), kind: .headsUp), today: today) == "Heads-up 1 Nov 19:00")
+        #expect(british.relativeDay(today.adding(days: 1), today: today, midSentence: true) == "tomorrow")
+        #expect(american.relativeDay(today.adding(days: 5), today: today, midSentence: true) == "Nov 3")
     }
 
     @Test("A wall-clock time comes out as written whatever the zone")

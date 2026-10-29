@@ -77,6 +77,21 @@ public enum Agenda {
         return found.sorted { ($0.day, $0.rule.deadline, $0.title) < ($1.day, $1.rule.deadline, $1.title) }
     }
 
+    /// The occurrence a reference names: a saved one, or one a repeat makes (saved by now or not).
+    public static func occurrence(_ ref: String, in tasks: [TaskSnapshot]) -> Occurrence? {
+        switch OccurrenceRef(ref) {
+        case .saved(let id):
+            for task in tasks {
+                if let found = task.occurrences.first(where: { $0.id == id }) { return found }
+            }
+            return nil
+        case .upcoming(let taskID, let day):
+            guard let task = tasks.first(where: { $0.id == taskID }) else { return nil }
+            if let saved = task.occurrences.first(where: { $0.seriesDay == day }) { return saved }
+            return task.spec.occurs(on: day) ? task.upcoming(on: day) : nil
+        }
+    }
+
     /// Today's list: overdue first, then today's own.
     public static func today(_ today: Day, in tasks: [TaskSnapshot]) -> (overdue: [Occurrence], today: [Occurrence]) {
         (overdue(before: today, in: tasks), occurrences(on: today, in: tasks))
