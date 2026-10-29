@@ -8,26 +8,42 @@ struct RootView: View {
     @Environment(Nudger.self) private var nudger
     @Environment(\.scenePhase) private var scenePhase
     @State private var now = Date.now
+    @State private var tab = Tab.today
+
+    enum Tab: Hashable {
+        case today, calendar, settings
+    }
 
     var body: some View {
         @Bindable var nudger = nudger
-        TabView {
+        TabView(selection: $tab) {
             NavigationStack {
                 TodayView(now: now)
             }
             .tabItem { Label("Today", systemImage: "checklist") }
+            .tag(Tab.today)
 
             NavigationStack {
                 CalendarView(now: now)
             }
             .tabItem { Label("Calendar", systemImage: "calendar") }
+            .tag(Tab.calendar)
 
             NavigationStack {
                 SettingsView()
             }
             .tabItem { Label("Settings", systemImage: "gearshape") }
+            .tag(Tab.settings)
         }
         .tint(.ardaivitsko)
+        // The widget: ardaivitsko://today, or ardaivitsko://task/<occurrence>.
+        .onOpenURL { url in
+            guard url.scheme == "ardaivitsko" else { return }
+            tab = .today
+            if url.host() == "task", let ref = url.pathComponents.dropFirst().first {
+                nudger.opened = ref
+            }
+        }
         .sheet(item: Binding(
             get: { nudger.opened.map(OpenedOccurrence.init) },
             set: { nudger.opened = $0?.id }

@@ -33,6 +33,11 @@ targets:
           - io.github.meko123456.ardaivitsko.refresh
         UIBackgroundModes:
           - fetch
+        # The widget opens Today, and a task with ardaivitsko://task/<id>.
+        CFBundleURLTypes:
+          - CFBundleURLName: io.github.meko123456.ardaivitsko
+            CFBundleURLSchemes:
+              - ardaivitsko
     entitlements:
       path: App/ArDaivitsko.entitlements
       properties:
@@ -51,6 +56,7 @@ targets:
         product: Nudges
       - package: ArDaivitskoKit
         product: Nudger
+      - target: ArDaivitskoWidgets
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.meko123456.ardaivitsko
@@ -59,6 +65,41 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+  ArDaivitskoWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - Widgets
+      - Shared
+    info:
+      path: Widgets/Info.plist
+      properties:
+        CFBundleDisplayName: Ar Daivitsko
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Widgets/ArDaivitskoWidgets.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.io.github.meko123456.ardaivitsko
+    dependencies:
+      - package: ArDaivitskoKit
+        product: NudgeKit
+      - package: ArDaivitskoKit
+        product: TaskStore
+      - package: ArDaivitskoKit
+        product: Nudges
+      # For the Done button's intent, which runs in the app's process.
+      - package: ArDaivitskoKit
+        product: Nudger
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.meko123456.ardaivitsko.widgets
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "6.0"
+        GENERATE_INFOPLIST_FILE: NO
   ArDaivitskoUITests:
     type: bundle.ui-testing
     platform: iOS

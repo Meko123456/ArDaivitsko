@@ -10,11 +10,44 @@ public enum AppGroup {
 
 private let log = Logger(subsystem: "io.github.meko123456.ardaivitsko", category: "store")
 
+/// Where the store lives. Not tied to the main actor: the widget opens it from its timeline
+/// provider.
+public enum StoreLocation {
+    public static var schema: Schema {
+        Schema([TaskModel.self, OccurrenceModel.self])
+    }
+
+    /// The store in the app group's container, where the app and the widget both open it.
+    public static func shared() throws -> ModelContainer {
+        guard let group = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: AppGroup.id) else {
+            throw CocoaError(.fileNoSuchFile, userInfo: [NSLocalizedDescriptionKey: "No app group container \(AppGroup.id)"])
+        }
+        let folder = group.appending(path: "Library/Application Support", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let configuration = ModelConfiguration(schema: schema, url: folder.appending(path: "ArDaivitsko.store"))
+        return try ModelContainer(for: schema, configurations: configuration)
+    }
+
+    /// A store that lives only as long as the process: tests, previews, and a fallback when the
+    /// app group can't be opened.
+    public static func inMemory() throws -> ModelContainer {
+        let configuration = ModelConfiguration(UUID().uuidString, schema: schema, isStoredInMemoryOnly: true)
+        return try ModelContainer(for: schema, configurations: configuration)
+    }
+
+    /// Every task, read on a context of the caller's own.
+    public static func snapshots(in container: ModelContainer) -> [TaskSnapshot] {
+        let context = ModelContext(container)
+        let tasks = (try? context.fetch(FetchDescriptor<TaskModel>(sortBy: [SortDescriptor(\.createdAt)]))) ?? []
+        return tasks.map(\.snapshot)
+    }
+}
+
 /// The tasks and their occurrences, saved with SwiftData. One writer: the app's process (the
 /// screens, the notification answers and the widget's intents all run there); the widget only reads.
 @MainActor
 public final class TaskStore {
-    public static let schema = Schema([TaskModel.self, OccurrenceModel.self])
+    public static var schema: Schema { StoreLocation.schema }
 
     public let container: ModelContainer
     /// Set when the last save failed; what's on screen then won't survive a relaunch.
@@ -28,22 +61,12 @@ public final class TaskStore {
         self.container = container
     }
 
-    /// The store in the app group's container, where the widget reads it too.
     public static func sharedContainer() throws -> ModelContainer {
-        guard let group = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: AppGroup.id) else {
-            throw CocoaError(.fileNoSuchFile, userInfo: [NSLocalizedDescriptionKey: "No app group container \(AppGroup.id)"])
-        }
-        let folder = group.appending(path: "Library/Application Support", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let configuration = ModelConfiguration(schema: schema, url: folder.appending(path: "ArDaivitsko.store"))
-        return try ModelContainer(for: schema, configurations: configuration)
+        try StoreLocation.shared()
     }
 
-    /// A store that lives only as long as the process: tests, previews, and a fallback when the
-    /// app group can't be opened.
     public static func inMemoryContainer() throws -> ModelContainer {
-        let configuration = ModelConfiguration(UUID().uuidString, schema: schema, isStoredInMemoryOnly: true)
-        return try ModelContainer(for: schema, configurations: configuration)
+        try StoreLocation.inMemory()
     }
 
     // MARK: Reading
