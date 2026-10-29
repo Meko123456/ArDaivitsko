@@ -254,6 +254,12 @@ private struct PendingNudgesSection: View {
             Button("Reload") {
                 Task { pending = await nudger.pendingIdentifiers() }
             }
+            if let alarms = nudger.alarms as? DeadlineAlarms {
+                let titles = Dictionary(tasks.flatMap { task in task.occurrences.map { ($0.id.uuidString, task.title) } }, uniquingKeysWith: { first, _ in first })
+                ForEach(alarms.debugLines(titles: titles, wording: nudger.wording), id: \.self) { line in
+                    Label(line, systemImage: "alarm")
+                }
+            }
         }
         .task {
             pending = await nudger.pendingIdentifiers()

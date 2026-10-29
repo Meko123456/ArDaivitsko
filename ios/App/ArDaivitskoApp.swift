@@ -2,6 +2,7 @@ import BackgroundTasks
 import Nudger
 import Nudges
 import SwiftUI
+import TaskStore
 import UserNotifications
 import WidgetKit
 
@@ -18,7 +19,13 @@ struct ArDaivitskoApp: App {
         // Set before anything else: a button tapped on a notification launches the app in the
         // background, and the answer arrives here.
         UNUserNotificationCenter.current().delegate = NotificationAnswers.shared
+        // Can't-miss alarms through AlarmKit on iOS 26; before that the Nudger sends them as
+        // time-sensitive notifications.
+        nudger.alarms = DeadlineAlarms(defaults: SettingsStore.sharedDefaults())
         self.nudger = nudger
+        #if DEBUG
+        UITestSeed.scheduleTestAlarm(for: nudger)
+        #endif
     }
 
     var body: some Scene {
@@ -102,6 +109,22 @@ enum UITestSeed {
             seedLog.info("Seeded \(seed.tasks.count) tasks")
         } catch {
             seedLog.error("\(Seed.environmentKey) not used: \(error, privacy: .public)")
+        }
+    }
+
+    /// ARDAIVITSKO_TEST_ALARM_IN=60 sounds the first Can't-miss task's alarm a minute after launch,
+    /// built as the real ones are, to check AlarmKit without waiting for a half hour.
+    @MainActor
+    static func scheduleTestAlarm(for nudger: Nudger) {
+        guard let seconds = ProcessInfo.processInfo.environment["ARDAIVITSKO_TEST_ALARM_IN"].flatMap(TimeInterval.init),
+              let alarms = nudger.alarms as? DeadlineAlarms else { return }
+        Task {
+            // The app asks for alarms as it comes forward; wait for the answer rather than ask twice.
+            for _ in 0..<60 where alarms.permission != .authorized {
+                try? await Task.sleep(for: .seconds(1))
+            }
+            guard let occurrence = nudger.store.unansweredOccurrences().first(where: \.rule.cantMiss) else { return }
+            await alarms.scheduleTestAlarm(for: occurrence, in: seconds, wording: nudger.wording)
         }
     }
 }

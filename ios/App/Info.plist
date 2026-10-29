@@ -35,6 +35,8 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>A task you can't miss rings like an alarm clock in its last hour, so a deadline can't slip by during a meeting.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>

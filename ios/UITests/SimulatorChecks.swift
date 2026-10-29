@@ -53,6 +53,80 @@ final class SimulatorChecks: ArDaivitskoUITestCase {
         XCTAssertEqual(pending.label, "Pay rent: 0 pending")
     }
 
+    /// The Can't-miss alarm through AlarmKit (iOS 26): the real one is scheduled for its slot, and
+    /// a test alarm built the same way sounds 45 seconds after launch, full screen over the Lock
+    /// Screen, with Done and slide to stop.
+    ///
+    /// The alarm's own Done runs CompleteTaskIntent from AlarmKit's daemon, which in the simulator
+    /// fails for an ad-hoc signed app: linkd can't identify it ("Unable to get teamId"), so the app
+    /// finds no metadata for the intent. A team-signed build on a phone should run it; that's
+    /// tried here without failing the check.
+    @MainActor
+    func testTheCantMissAlarmSoundsOverTheLockScreen() throws {
+        var bill = NudgeRule.standard
+        bill.cantMiss = true
+        var settings = NudgeSettings.standard
+        settings.quietHoursOn = false
+        XCUIDevice.shared.press(.home) // wakes and unlocks a simulator left locked
+        let app = XCUIApplication()
+        app.launchEnvironment[Seed.environmentKey] = try Seed(tasks: [Seed.Entry(title: "Pay the credit card bill", rule: bill)], settings: settings).encoded()
+        app.launchEnvironment["ARDAIVITSKO_TEST_ALARM_IN"] = "45"
+        app.launch()
+        allowPrompts(timeout: 5)
+
+        // The planned alarm, at 23:00 for a 23:59 deadline, is with AlarmKit.
+        tapWhenHittable(app.buttons["Settings"])
+        let planned = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH '23:00' AND label CONTAINS 'Pay the credit card bill'")).firstMatch
+        scroll(to: planned, in: app)
+        save("alarm-scheduled")
+        tapWhenHittable(app.buttons["Today"])
+
+        XCUIDevice.shared.perform(NSSelectorFromString("pressLockButton"))
+        let alarmDone = springboard.buttons["Done"]
+        XCTAssertTrue(alarmDone.waitForExistence(timeout: 120), "The alarm never sounded")
+        sleep(2)
+        save("alarm-sounding")
+
+        let task = row("Pay the credit card bill", in: app)
+        let options = XCTExpectedFailure.Options()
+        options.isStrict = false
+        XCTExpectFailure("The alarm's Done can't run its intent for an ad-hoc signed app in the simulator", options: options) {
+            alarmDone.tap()
+            sleep(5)
+            XCUIDevice.shared.press(.home)
+            app.activate()
+            XCTAssertEqual(XCTWaiter().wait(for: [expectation(for: NSPredicate(format: "value CONTAINS 'Done'"), evaluatedWith: task)], timeout: 10), .completed)
+        }
+        // Leave nothing sounding: answering in the app stops it.
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        if !((task.value as? String) ?? "").contains("Done") {
+            tapWhenHittable(app.buttons["Mark Pay the credit card bill done"])
+        }
+    }
+
+    /// While the alarm sounds over the open app, Done in the app silences it.
+    @MainActor
+    func testAnsweringInTheAppStopsASoundingAlarm() throws {
+        var bill = NudgeRule.standard
+        bill.cantMiss = true
+        var settings = NudgeSettings.standard
+        settings.quietHoursOn = false
+        XCUIDevice.shared.press(.home)
+        let app = XCUIApplication()
+        app.launchEnvironment[Seed.environmentKey] = try Seed(tasks: [Seed.Entry(title: "Pay the credit card bill", rule: bill)], settings: settings).encoded()
+        app.launchEnvironment["ARDAIVITSKO_TEST_ALARM_IN"] = "30"
+        app.launch()
+        allowPrompts(timeout: 5)
+        let alarm = springboard.buttons["Done"]
+        XCTAssertTrue(alarm.waitForExistence(timeout: 120), "The alarm never sounded")
+        save("alarm-over-app")
+        tapWhenHittable(app.buttons["Mark Pay the credit card bill done"])
+        waitForValue(of: row("Pay the credit card bill", in: app), containing: "Done")
+        XCTAssertTrue(alarm.waitForNonExistence(timeout: 30), "The alarm kept sounding after the task was answered")
+        save("alarm-stopped")
+    }
+
     /// Long-press the Home Screen, Edit, Add Widget, search, pick the app, pick the medium size, add.
     @MainActor
     private func placeWidget(named name: String) {
