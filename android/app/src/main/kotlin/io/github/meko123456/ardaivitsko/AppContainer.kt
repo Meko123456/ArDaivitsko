@@ -19,11 +19,11 @@ import io.github.meko123456.ardaivitsko.nudge.AndroidNotifier
 import io.github.meko123456.ardaivitsko.nudge.NudgeNotifier
 import io.github.meko123456.ardaivitsko.nudge.NudgeService
 import io.github.meko123456.ardaivitsko.nudge.PhoneAbilities
-import io.github.meko123456.ardaivitsko.nudge.WidgetRefresher
 import io.github.meko123456.ardaivitsko.time.AndroidTextFormats
 import io.github.meko123456.ardaivitsko.time.SystemTimeSource
 import io.github.meko123456.ardaivitsko.time.TextFormats
 import io.github.meko123456.ardaivitsko.time.TimeSource
+import io.github.meko123456.ardaivitsko.widget.GlanceWidgetRefresher
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,7 +49,7 @@ class AppContainer(
     val notifier: NudgeNotifier = AndroidNotifier(context, time, formats)
     val alarms = AndroidAlarms(context)
     val abilities = PhoneAbilities(context)
-    val service = NudgeService(store, settings, time, notifier, alarms, WidgetRefresher { })
+    val service = NudgeService(store, settings, time, notifier, alarms, GlanceWidgetRefresher(context, appScope))
 
     /** Runs [block] for a receiver after onReceive returns, and lets the system know when it's done. */
     fun runAsync(pending: BroadcastReceiver.PendingResult, block: suspend () -> Unit) {

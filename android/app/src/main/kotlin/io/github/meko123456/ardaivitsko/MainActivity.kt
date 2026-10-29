@@ -9,6 +9,7 @@ import io.github.meko123456.ardaivitsko.nudge.Intents
 import io.github.meko123456.ardaivitsko.ui.AppNavHost
 import io.github.meko123456.ardaivitsko.ui.OpenRequest
 import io.github.meko123456.ardaivitsko.ui.theme.ArDaivitskoTheme
+import io.github.meko123456.ardaivitsko.widget.publishWidgetPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
@@ -22,6 +23,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         // A recreated activity is handed the intent it was first opened with: only a fresh start reads it.
         if (savedInstanceState == null) handle(intent)
+        val container = appContainer
+        container.appScope.launch { runCatching { publishWidgetPreview(applicationContext) } }
         setContent {
             ArDaivitskoTheme {
                 AppNavHost(
