@@ -59,6 +59,22 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+  ArDaivitskoUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - UITests
+    dependencies:
+      - target: ArDaivitsko
+      # The tests write the tasks each one starts from.
+      - package: ArDaivitskoKit
+        product: NudgeKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.meko123456.ardaivitsko.uitests
+        TEST_TARGET_NAME: ArDaivitsko
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "6.0"
 schemes:
   ArDaivitsko:
     build:
@@ -68,3 +84,5 @@ schemes:
       config: Debug
     test:
       config: Debug
+      targets:
+        - ArDaivitskoUITests
