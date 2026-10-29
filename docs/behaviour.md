@@ -83,7 +83,10 @@ earlier days that are still Open or In progress stay in the list as overdue ("Ov
 Oct"), but quietly: no nudges and no catch-up. Each can be marked Done, or **Skipped** (a missed day
 that won't be done; it stays quiet and shows as skipped). If the latest day is Done, nothing nudges
 for that task. A missed bill from last month still shows, quietly, while this month's nudges. The
-evening-before heads-up for a day to come isn't affected.
+evening-before heads-up for a day to come isn't affected. "Latest" counts each day by the day its
+repeat gave it, not a day it was moved to: after Not today on a daily task, nothing nudges for it
+until its next day, and the moved one then sits quietly beside it. A monthly task moved by a day
+or two still nudges on its new day, since no newer day of its has come.
 
 **Missed nudges.** If the phone was off, or the app couldn't run, at a nudge time, one catch-up
 nudge comes as soon as it can (at start-up, or when the app opens): one per unanswered occurrence,
@@ -196,3 +199,8 @@ deadline passed.
 answered. On 29 Oct the days from 22 to 28 Oct are listed as overdue, quietly, and only 29 Oct
 nudges: 10:00, 13:00, 16:00, 19:00. Done on 29 Oct at 10:05 stops that day's nudges; the earlier
 days stay listed until each is marked Done or Skipped.
+
+**13. Not today on a repeating task.** "Water the plants", daily, Not today on 29 Oct at 11:00: no
+more nudges for it on 29 Oct. On 30 Oct its own day nudges at 10:00, 13:00, 16:00, 19:00, and the
+moved one from the 29th is listed quietly on the 30th, with Done and Skip. "Pay rent", monthly on
+the 1st, Not today on 1 Nov: it nudges on 2 Nov from 10:00 as usual.
