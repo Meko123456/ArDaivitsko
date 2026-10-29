@@ -301,7 +301,7 @@ class NudgePlannerTest {
         planOf(task).filter { it.kind == NudgeKind.FINAL || it.kind == NudgeKind.ALARM || it.kind == NudgeKind.DEADLINE_PASSED }
 
     @Test
-    fun `in spring the final hours are on the wall clock and the skipped slots fold into the next ones`() {
+    fun `10 in spring the final hours are on the wall clock and the skipped slots fold into the next ones`() {
         val newYork = NudgePlanner(NudgeSettings(quietHours = null), NEW_YORK)
         val spring = task(day = "2026-03-08", createdAt = "2026-03-06 12:00", deadline = "04:00", cantMiss = true, zone = NEW_YORK)
 
@@ -386,6 +386,15 @@ class NudgePlannerTest {
     }
 
     // States
+
+    @Test
+    fun `a skipped day nudges no more than a done one`() {
+        val skipped = Answers.skip(OccurrenceStatus(day = day("2026-10-28")), at("2026-10-29 09:00"))
+        val occurrence = Occurrence.of(task(day = "2026-10-28", createdAt = "2026-10-27 12:00"), skipped)
+
+        assertEquals(emptyList(), planner.plan(occurrence, through = day("2026-11-30")))
+        assertNull(planner.next(occurrence, after = at("2026-10-29 09:00")))
+    }
 
     @Test
     fun `done stops every nudge`() {
