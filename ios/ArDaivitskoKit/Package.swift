@@ -9,6 +9,7 @@ let package = Package(
         .library(name: "NudgeKit", targets: ["NudgeKit"]),
         .library(name: "TaskStore", targets: ["TaskStore"]),
         .library(name: "Nudges", targets: ["Nudges"]),
+        .library(name: "Nudger", targets: ["Nudger"]),
     ],
     targets: [
         // Tasks, occurrences and when they nudge, as plain values: no UI, no system frameworks
@@ -26,5 +27,10 @@ let package = Package(
         // the window, and reading an answer. UserNotifications behind a protocol, for tests.
         .target(name: "Nudges", dependencies: ["NudgeKit"]),
         .testTarget(name: "NudgesTests", dependencies: ["Nudges"]),
+
+        // The store with its notifications, alarms and widget, one per process, for the screens,
+        // the notification answers and the widget's intents alike.
+        .target(name: "Nudger", dependencies: ["NudgeKit", "TaskStore", "Nudges"]),
+        .testTarget(name: "NudgerTests", dependencies: ["Nudger"]),
     ]
 )
