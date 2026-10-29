@@ -72,8 +72,8 @@ class AndroidNotifier(
 
         val notification = builder.build()
         if (alarm) notification.flags = notification.flags or Notification.FLAG_INSISTENT
-        // A nudge on another channel (the alarm after final ones) is a new notification, not an update.
-        manager.cancel(TAG_NUDGE, id.toInt())
+        // An update in place, even onto another channel (the alarm after the final ones): it alerts
+        // again. Cancelling first made Android 16 regroup the app's nudges and re-post them silenced.
         notify(TAG_NUDGE, id.toInt(), notification)
     }
 
