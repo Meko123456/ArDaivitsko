@@ -91,6 +91,7 @@ public struct Wording: Sendable {
         case .inProgress: "In progress"
         case .done: "Done"
         case .moved: occurrence.seriesDay == occurrence.day ? "Moved" : "Moved from \(day(occurrence.seriesDay))"
+        case .skipped: "Skipped"
         }
     }
 
@@ -98,6 +99,9 @@ public struct Wording: Sendable {
     public func overdueSince(_ occurrence: Occurrence) -> String {
         "Overdue since \(day(occurrence.day))"
     }
+
+    /// What a repeating task's quiet earlier day says in place of its next nudge.
+    public let quietNote = "Quiet while a later day nudges"
 
     /// The text of a nudge's notification, as of the moment it shows.
     public func body(for nudge: Nudge, of occurrence: Occurrence, shownAt moment: Date) -> String {

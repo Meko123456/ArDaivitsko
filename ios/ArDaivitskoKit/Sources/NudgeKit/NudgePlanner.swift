@@ -28,9 +28,11 @@ public struct NudgePlanner: Sendable {
         self.init(calendar: .gregorian(in: timeZone), quietHours: quietHours)
     }
 
-    /// Every nudge from `start` through `end`, earliest first. A Done occurrence has none.
+    /// Every nudge from `start` through `end`, earliest first. A Done or Skipped occurrence has
+    /// none, and a repeating task's day nudges only until its next day comes: then that one does.
     public func nudges(for occurrence: Occurrence, from start: Date, through end: Date) -> [Nudge] {
-        guard occurrence.state != .done, start <= end else { return [] }
+        let end = min(end, occurrence.quietFrom.map { $0.start(in: calendar).addingTimeInterval(-0.001) } ?? end)
+        guard !occurrence.isAnswered, start <= end else { return [] }
         let anchors = Anchors(occurrence, calendar: calendar)
         var nudges: [Nudge] = []
 

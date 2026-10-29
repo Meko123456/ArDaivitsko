@@ -233,6 +233,33 @@ struct NudgerTests {
         #expect((latest ?? 99) <= 15)
     }
 
+    @Test("A daily task left for a week: only its latest day has notifications pending, and Skip sets a missed day aside")
+    func dailyLeftForAWeek() async throws {
+        clock.now = at(today.adding(days: -7), 9, 0)
+        let plants = await nudger.add(TaskDraft(title: "Water the plants", day: today.adding(days: -7), repeats: .daily))
+        clock.now = at(today, 9, 0)
+        await nudger.refresh()
+        let byID = Dictionary(uniqueKeysWithValues: plants.occurrences.compactMap(\.value).map { ($0.id, $0) })
+        #expect(byID.count == 11) // a week back, today, and three days ahead
+        let pendingDays = center.pending.compactMap { request -> (Day, Day)? in
+            guard let id = NudgeIdentifier.occurrenceID(in: request.identifier), let occurrence = byID[id],
+                  let trigger = request.trigger as? UNCalendarNotificationTrigger,
+                  let date = calendar.date(from: trigger.dateComponents) else { return nil }
+            return (occurrence.seriesDay, Day(date, in: calendar))
+        }
+        #expect(!pendingDays.isEmpty)
+        // Each day's nudges belong to that day's own occurrence: none for the missed days.
+        #expect(pendingDays.allSatisfy { $0.0 == $0.1 })
+        #expect(!pendingDays.contains { $0.0 < today })
+        // No catch-up either: the window covered nothing since the first day, but the missed days are quiet.
+        #expect(!center.delivered.contains { $0.identifier.hasPrefix("catchup.") })
+
+        let missed = try #require(plants.occurrences.first { $0.seriesDayKey == today.adding(days: -3).key })
+        await nudger.answer(.skip, ref: missed.id.uuidString)
+        #expect(missed.state == .skipped)
+        #expect(Agenda.overdue(before: today, in: nudger.store.snapshots()).count == 6)
+    }
+
     @Test("Deleting a task takes its nudges away")
     func delete() async throws {
         let task = await nudger.add(TaskDraft(title: "Gone", day: today, repeats: .daily))

@@ -26,6 +26,24 @@ public enum Repeat: String, Hashable, Sendable, Codable, CaseIterable {
         }
     }
 
+    /// The first day on or after `day` that a task first due on `first` has an occurrence; nil for
+    /// one that doesn't repeat and is past.
+    public func firstDay(onOrAfter day: Day, first: Day) -> Day? {
+        let from = max(day, first)
+        switch self {
+        case .never:
+            return from == first ? first : nil
+        case .daily:
+            return from
+        case .weekly:
+            return from.adding(days: (7 - first.days(until: from) % 7) % 7)
+        case .monthly:
+            let months = first.months(until: from)
+            let candidate = first.addingMonths(months, dayOfMonth: first.day)
+            return candidate >= from ? candidate : first.addingMonths(months + 1, dayOfMonth: first.day)
+        }
+    }
+
     /// The days a task first due on `first` has occurrences on, from `from` through `through`.
     public func days(first: Day, from: Day, through: Day) -> [Day] {
         let from = max(first, from)

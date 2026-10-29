@@ -73,6 +73,12 @@ public struct TaskSpec: Hashable, Sendable, Identifiable {
         day == draft.day || (day >= since && draft.repeats.occurs(on: day, first: draft.day))
     }
 
+    /// The first day after `day` that its repeat gives an occurrence; nil for a one-off task.
+    public func nextDay(after day: Day) -> Day? {
+        guard draft.repeats != .never else { return nil }
+        return draft.repeats.firstDay(onOrAfter: max(day.adding(days: 1), since), first: draft.day)
+    }
+
     /// The days it has occurrences on, from `from` through `through`.
     public func days(from: Day, through: Day) -> [Day] {
         var days = draft.repeats.days(first: draft.day, from: max(from, since), through: through)
@@ -93,6 +99,8 @@ public enum OccurrenceState: String, Hashable, Sendable, Codable, CaseIterable {
     case done
     /// "Not today" gave it another day; it now belongs to that day, and nudges there like an open one.
     case moved
+    /// A repeating task's earlier missed day, set aside in the app: quiet, like Done.
+    case skipped
 }
 
 /// What the person can answer, from a notification or in the app.
@@ -101,6 +109,8 @@ public enum Answer: String, Hashable, Sendable, Codable, CaseIterable {
     case inProgress
     case notToday
     case snooze
+    /// For a repeating task's earlier missed day, in the app: it won't be done.
+    case skip
 }
 
 /// One day's instance of a task, with everything the nudge planner needs: the task's rule, its
@@ -124,11 +134,15 @@ public struct Occurrence: Hashable, Sendable, Identifiable, Codable {
     /// When Not today last moved it.
     public var movedAt: Date?
     public var doneAt: Date?
+    /// For a repeating task, the next day its repeat gives: from then on that newer day is the
+    /// one that nudges, and this one, if still unanswered, is quiet. Counted by series day, so a
+    /// move doesn't change it. Nil for a one-off task.
+    public var quietFrom: Day?
 
     public init(
         id: String, taskID: String, title: String, seriesDay: Day, day: Day? = nil, rule: NudgeRule,
         state: OccurrenceState = .open, createdAt: Date, inProgressSince: Date? = nil,
-        snoozedAt: Date? = nil, movedAt: Date? = nil, doneAt: Date? = nil
+        snoozedAt: Date? = nil, movedAt: Date? = nil, doneAt: Date? = nil, quietFrom: Day? = nil
     ) {
         self.id = id
         self.taskID = taskID
@@ -142,25 +156,34 @@ public struct Occurrence: Hashable, Sendable, Identifiable, Codable {
         self.snoozedAt = snoozedAt
         self.movedAt = movedAt
         self.doneAt = doneAt
+        self.quietFrom = quietFrom
     }
 
+    /// Done, or Skipped: nothing more to nudge about.
     public var isAnswered: Bool {
-        state == .done
+        state == .done || state == .skipped
     }
 
     /// Still unanswered after its day: shown first, as "Overdue since 28 Oct".
     public func isOverdue(today: Day) -> Bool {
-        state != .done && day < today
+        !isAnswered && day < today
+    }
+
+    /// An unanswered earlier day of a repeating task whose newer day has come: listed, but it
+    /// doesn't nudge. Only Done and Skip are offered for it.
+    public func isQuiet(today: Day) -> Bool {
+        !isAnswered && (quietFrom.map { $0 <= today } ?? false)
     }
 
     /// A Can't-miss task on its deadline day, where Not today asks first.
     public func isLastDay(today: Day) -> Bool {
-        rule.cantMiss && state != .done && day == today
+        rule.cantMiss && !isAnswered && day == today
     }
 
-    /// Not today makes sense for an occurrence of today or earlier, not one still to come.
+    /// Not today, In progress and Snooze are offered for an occurrence of today or earlier, not one
+    /// still to come, nor a quiet one.
     public func canMoveToTomorrow(today: Day) -> Bool {
-        state != .done && day <= today
+        !isAnswered && day <= today && !isQuiet(today: today)
     }
 
     /// The occurrence after `answer` at `now`.
@@ -186,11 +209,15 @@ public struct Occurrence: Hashable, Sendable, Identifiable, Codable {
             next.doneAt = nil
         case .snooze:
             next.snoozedAt = now
+        case .skip:
+            next.state = .skipped
+            next.inProgressSince = nil
+            next.snoozedAt = nil
         }
         return next
     }
 
-    /// Back to open, after Done was tapped by mistake.
+    /// Back to open, after Done or Skip was tapped by mistake.
     public func reopened() -> Occurrence {
         var next = self
         next.state = movedAt == nil ? .open : .moved

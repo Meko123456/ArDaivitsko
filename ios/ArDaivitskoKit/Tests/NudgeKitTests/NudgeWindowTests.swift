@@ -83,13 +83,15 @@ struct NudgeWindowTests {
         #expect(first.catchUps.isEmpty && covered.catchUps.isEmpty)
     }
 
-    @Test("A daily task whose yesterday is unanswered: both occurrences nudge")
+    @Test("A daily task whose yesterday is unanswered: only today's day nudges, yesterday's is quiet")
     func dailyWithYesterdayUnanswered() {
-        let yesterday = occurrence("Vitamins", on: today.adding(days: -1), created: at(today.adding(days: -2), 12, 0), id: "y")
-        let todays = occurrence("Vitamins", on: today, created: at(today.adding(days: -2), 12, 0), id: "t")
+        var yesterday = occurrence("Vitamins", on: today.adding(days: -1), created: at(today.adding(days: -2), 12, 0), id: "y")
+        yesterday.quietFrom = today
+        var todays = occurrence("Vitamins", on: today, created: at(today.adding(days: -2), 12, 0), id: "t")
+        todays.quietFrom = today.adding(days: 1)
         let plan = NudgeWindow.plan(for: [yesterday, todays], planner: standardPlanner, now: now, previouslyCoveredUntil: nil, alarmsSeparately: false)
-        let atTen = plan.notifications.filter { $0.nudge.date == at(today, 10, 0) }
-        #expect(atTen.map(\.occurrence.id).sorted() == ["t", "y"])
-        #expect(atTen.map(\.nudge.kind).sorted() == [.regular, .overdue])
+        #expect(Set(plan.notifications.map(\.occurrence.id)) == ["t"])
+        // And today's stops at midnight, when tomorrow's day (not saved here) takes over.
+        #expect(plan.notifications.allSatisfy { $0.nudge.date < today.adding(days: 1).start(in: tbilisi) })
     }
 }

@@ -114,13 +114,15 @@ public final class OccurrenceModel {
         state == .open && inProgressSince == nil && snoozedAt == nil && movedAt == nil && doneAt == nil
     }
 
-    /// The occurrence as a value, with its task's rule; none once its task is gone.
+    /// The occurrence as a value, with its task's rule and the day its series moves on; none once
+    /// its task is gone.
     public var value: Occurrence? {
         guard let task, let seriesDay = Day(key: seriesDayKey), let day = Day(key: dayKey) else { return nil }
         return Occurrence(
             id: id.uuidString, taskID: task.id.uuidString, title: task.title, seriesDay: seriesDay, day: day,
             rule: task.rule, state: state, createdAt: task.createdAt, inProgressSince: inProgressSince,
-            snoozedAt: snoozedAt, movedAt: movedAt, doneAt: doneAt
+            snoozedAt: snoozedAt, movedAt: movedAt, doneAt: doneAt,
+            quietFrom: task.spec.nextDay(after: seriesDay)
         )
     }
 

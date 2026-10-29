@@ -109,10 +109,11 @@ public final class TaskStore {
         }
     }
 
-    /// Every occurrence not yet Done, as values for the nudge planner.
+    /// Every occurrence not yet Done or Skipped, as values for the nudge planner.
     public func unansweredOccurrences() -> [Occurrence] {
         let done = OccurrenceState.done.rawValue
-        let descriptor = FetchDescriptor<OccurrenceModel>(predicate: #Predicate { $0.stateRaw != done })
+        let skipped = OccurrenceState.skipped.rawValue
+        let descriptor = FetchDescriptor<OccurrenceModel>(predicate: #Predicate { $0.stateRaw != done && $0.stateRaw != skipped })
         return ((try? context.fetch(descriptor)) ?? []).compactMap(\.value)
     }
 

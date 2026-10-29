@@ -89,6 +89,20 @@ struct TaskStoreTests {
         #expect(store.unansweredOccurrences().count == 1)
     }
 
+    @Test("Skip sets a missed day aside: saved as Skipped, no longer unanswered, and a repeat's days know their next day")
+    func skip() throws {
+        let start = today.adding(days: -3)
+        let task = store.add(draft("Water the plants", on: start, repeats: .daily), at: at(start, 8, 0), today: start, through: horizon)
+        let oldest = try #require(task.occurrences.first { $0.seriesDayKey == start.key })
+        #expect(oldest.value?.quietFrom == start.adding(days: 1))
+        #expect(oldest.value?.isQuiet(today: today) == true)
+        store.answer(.skip, to: oldest, at: at(today, 9, 0), calendar: tbilisi)
+        #expect(oldest.state == .skipped)
+        #expect(!store.unansweredOccurrences().contains { $0.id == oldest.id.uuidString })
+        let oneOff = store.add(draft("Dentist"), at: at(today, 9, 0), today: today, through: horizon)
+        #expect(try only(oneOff).value?.quietFrom == nil)
+    }
+
     @Test("Not today moves the occurrence to tomorrow, and Undo puts it back as it was")
     func notTodayAndUndo() throws {
         let task = store.add(draft("Renew the parking permit"), at: at(today.adding(days: -1), 9, 0), today: today, through: horizon)
@@ -128,6 +142,23 @@ struct TaskStoreTests {
         #expect(occurrence.dayKey == today.adding(days: 2).key)
         #expect(occurrence.state == .inProgress)
         #expect(occurrence.value?.title == "Dentist, 2nd visit")
+    }
+
+    @Test("Editing the day of a one-off that Not today moved makes it Open; Done stays Done")
+    func editMovedOneOff() throws {
+        let task = store.add(draft("Permit"), at: at(today.adding(days: -1), 9, 0), today: today, through: horizon)
+        let occurrence = try only(task)
+        store.answer(.notToday, to: occurrence, at: at(today, 11, 0), calendar: tbilisi)
+        store.update(task, to: draft("Permit", on: today.adding(days: 3)), today: today, through: horizon)
+        #expect(occurrence.state == .open)
+        #expect(occurrence.movedAt == nil)
+        #expect(occurrence.dayKey == today.adding(days: 3).key && occurrence.seriesDayKey == today.adding(days: 3).key)
+        #expect(!store.undoMove(occurrence)) // an edit isn't undone like a move
+
+        let done = store.add(draft("Paid"), at: at(today, 9, 0), today: today, through: horizon)
+        store.answer(.done, to: try only(done), at: at(today, 10, 0), calendar: tbilisi)
+        store.update(done, to: draft("Paid", on: today.adding(days: 1)), today: today, through: horizon)
+        #expect(try only(done).state == .done)
     }
 
     @Test("Changing a repeat replaces the unanswered occurrences from today on and keeps the rest")

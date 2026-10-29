@@ -20,7 +20,8 @@ public struct TaskSnapshot: Hashable, Sendable, Identifiable {
             title: spec.draft.title,
             seriesDay: day,
             rule: spec.draft.rule,
-            createdAt: spec.createdAt
+            createdAt: spec.createdAt,
+            quietFrom: spec.nextDay(after: day)
         )
     }
 }

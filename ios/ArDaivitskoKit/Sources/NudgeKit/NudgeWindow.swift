@@ -58,7 +58,7 @@ public enum NudgeWindow {
         limit: Int = limit
     ) -> WindowPlan {
         let end = now.addingTimeInterval(length)
-        let open = occurrences.filter { $0.state != .done }
+        let open = occurrences.filter { !$0.isAnswered }
 
         var upcoming: [ScheduledNudge] = []
         for occurrence in open {
@@ -79,7 +79,8 @@ public enum NudgeWindow {
 
         var catchUps: [ScheduledNudge] = []
         if let previouslyCoveredUntil, previouslyCoveredUntil <= now {
-            for occurrence in open {
+            // A quiet earlier day of a repeating task gets no catch-up: its newer day speaks for it.
+            for occurrence in open where !occurrence.isQuiet(today: Day(now, in: planner.calendar)) {
                 let missed = planner.nudges(for: occurrence, from: previouslyCoveredUntil, through: now)
                 if let last = missed.last {
                     catchUps.append(ScheduledNudge(occurrence: occurrence, nudge: last))
