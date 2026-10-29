@@ -129,6 +129,19 @@ class NudgeServiceTest {
     }
 
     @Test
+    fun `an alarm due with another nudge is posted first, as Android mutes the later ones of a burst`() = runTest {
+        val h = Harness(at("2026-10-28 09:00"), AppSettings(quietHoursOn = false))
+        val bank = h.add(task(title = "Call the bank", day = "2026-10-28", start = "23:00", interval = 1))
+        val bill = h.add(task(title = "Pay the credit card bill", day = "2026-10-28", cantMiss = true))
+        h.advanceTo("2026-10-28 22:59")
+
+        h.advanceTo("2026-10-28 23:00")
+
+        val atEleven = h.notifier.posted.filter { it.at == at("2026-10-28 23:00") }
+        assertEquals(listOf(bill to NudgeKind.ALARM, bank to NudgeKind.REGULAR), atEleven.map { it.occurrenceId to it.kind })
+    }
+
+    @Test
     fun `an unanswered task carries over to the next day as overdue`() = runTest {
         val h = Harness(at("2026-10-28 09:00"))
         val id = h.add(task(day = "2026-10-28", cantMiss = true))

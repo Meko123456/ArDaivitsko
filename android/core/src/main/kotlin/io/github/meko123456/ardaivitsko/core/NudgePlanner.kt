@@ -8,8 +8,11 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
 
-/** Why a nudge comes. When two fall on the same instant, only the stronger one comes. */
-enum class NudgeKind(internal val strength: Int) {
+/**
+ * Why a nudge comes. When two fall on the same instant, only the one with the greater [strength]
+ * comes; deadline passed, then the alarm, a final slot, the heads-up, the rest.
+ */
+enum class NudgeKind(val strength: Int) {
     /** On the occurrence's own day: the start-time grid, or the cadence after In progress or Snooze. */
     REGULAR(0),
 

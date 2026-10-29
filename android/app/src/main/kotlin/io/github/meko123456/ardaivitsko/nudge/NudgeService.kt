@@ -139,9 +139,13 @@ class NudgeService(
         // Tomorrow's occurrences exist a day ahead, for a Can't-miss task's heads-up the evening before.
         store.materialize(through = today.plusDays(DAYS_AHEAD))
         val planner = NudgePlanner(settings.current().nudgeSettings, zone)
-        for (item in store.undone()) {
-            val delivery = planner.deliver(item.occurrence, item.lastNudgedAt, now)
+        val deliveries = store.undone().map { it to planner.deliver(it.occurrence, it.lastNudgedAt, now) }
+        // Android mutes an app's later notifications in a burst, so the strongest (a Can't-miss alarm)
+        // goes first when several are due at once.
+        for ((item, delivery) in deliveries.sortedByDescending { it.second.post?.kind?.strength ?: -1 }) {
             delivery.post?.let { notifier.post(item, it, now) }
+        }
+        for ((item, delivery) in deliveries) {
             if (delivery.lastNudgedAt != item.lastNudgedAt) store.setLastNudged(item.id, delivery.lastNudgedAt)
             val next = delivery.next
             if (next != null) alarms.set(item.id, next) else alarms.cancel(item.id)
