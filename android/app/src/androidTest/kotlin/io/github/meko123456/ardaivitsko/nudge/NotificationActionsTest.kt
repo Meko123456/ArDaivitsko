@@ -57,7 +57,8 @@ class NotificationActionsTest {
     private fun postNudge(item: OccurrenceItem, kind: NudgeKind = NudgeKind.REGULAR): Notification {
         val now = container.time.now()
         container.notifier.post(item, Nudge(now, kind), now)
-        return waitFor("the nudge") { shown(AndroidNotifier.TAG_NUDGE, item.id) }.notification
+        val tag = if (kind == NudgeKind.ALARM) AndroidNotifier.TAG_ALARM else AndroidNotifier.TAG_NUDGE
+        return waitFor("the nudge") { shown(tag, item.id) }.notification
     }
 
     private fun shown(tag: String, id: Long): StatusBarNotification? =
@@ -145,6 +146,7 @@ class NotificationActionsTest {
     @Test
     fun the_alarm_fills_the_screen_and_rings_until_answered() {
         val item = add("Test: alarm", day = container.time.today(), cantMiss = true)
+        postNudge(item, NudgeKind.FINAL)
 
         val notification = postNudge(item, NudgeKind.ALARM)
 
@@ -152,5 +154,17 @@ class NotificationActionsTest {
         assertEquals(Notification.CATEGORY_ALARM, notification.category)
         assertNotNull(notification.fullScreenIntent)
         assertNotEquals(0, notification.flags and Notification.FLAG_INSISTENT)
+        // A new notification of its own (a full-screen intent fires only then), in place of the final one.
+        waitFor("the final nudge to go") { if (shown(AndroidNotifier.TAG_NUDGE, item.id) == null) Unit else null }
+    }
+
+    @Test
+    fun the_next_nudge_after_the_alarm_stops_its_ringing() {
+        val item = add("Test: after the alarm", day = container.time.today(), cantMiss = true)
+        postNudge(item, NudgeKind.ALARM)
+
+        postNudge(item, NudgeKind.FINAL)
+
+        waitFor("the alarm to go") { if (shown(AndroidNotifier.TAG_ALARM, item.id) == null) Unit else null }
     }
 }

@@ -72,9 +72,18 @@ class AndroidNotifier(
 
         val notification = builder.build()
         if (alarm) notification.flags = notification.flags or Notification.FLAG_INSISTENT
-        // An update in place, even onto another channel (the alarm after the final ones): it alerts
-        // again. Cancelling first made Android 16 regroup the app's nudges and re-post them silenced.
-        notify(TAG_NUDGE, id.toInt(), notification)
+        // A nudge updates the task's notification in place, which alerts again; cancelling it first
+        // made Android 16 regroup the app's nudges and re-post them silenced. The alarm, though, must
+        // be a new notification: Android launches a full-screen intent only when a notification is
+        // first posted, never on an update of the nudge already in the shade (the 22:30 one at 23:00).
+        // So it goes under a tag of its own, and the task's other notification is taken away after.
+        if (alarm) {
+            notify(TAG_ALARM, id.toInt(), notification)
+            manager.cancel(TAG_NUDGE, id.toInt())
+        } else {
+            notify(TAG_NUDGE, id.toInt(), notification)
+            manager.cancel(TAG_ALARM, id.toInt())
+        }
     }
 
     override fun postMoved(item: OccurrenceItem) {
@@ -99,6 +108,7 @@ class AndroidNotifier(
 
     override fun cancel(occurrenceId: Long) {
         manager.cancel(TAG_NUDGE, occurrenceId.toInt())
+        manager.cancel(TAG_ALARM, occurrenceId.toInt())
         manager.cancel(TAG_MOVED, occurrenceId.toInt())
     }
 
@@ -120,6 +130,7 @@ class AndroidNotifier(
 
     companion object {
         const val TAG_NUDGE = "nudge"
+        const val TAG_ALARM = "alarm"
         const val TAG_MOVED = "moved"
         /** The app's pomegranate, for the notification's accents. */
         private const val ACCENT = 0xFF9A2B3D.toInt()
