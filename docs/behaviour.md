@@ -23,6 +23,7 @@ Each occurrence of a task is in one state:
 - **In progress**: started, not finished.
 - **Done**: finished; its nudges stop.
 - **Moved**: "Not today" gave it another day; it now belongs to that day.
+- **Skipped**: a repeating task's earlier missed day, set aside in the app; quiet, like Done.
 
 Settings: **quiet hours** (default 22:00 to 08:00), and the defaults for new tasks.
 
@@ -74,8 +75,15 @@ on until the day ends, deadline or not, and then it's overdue.
 **Overdue.** An occurrence still Open or In progress after its day carries over: it's shown at
 the top of today as "Overdue since 28 Oct", and nudges every day from the start time on the
 regular grid (every interval if Open, twice the interval if In progress), until it's answered.
-The Can't-miss extras don't repeat after the deadline. A repeating task's unanswered yesterday and
-its today both nudge, as separate notifications grouped together.
+The Can't-miss extras don't repeat after the deadline.
+
+**One nudge per task** (Merab's ruling). A repeating task nudges only for its latest day so far:
+today's occurrence, or the most recent one before today when today isn't one of its days. Its
+earlier days that are still Open or In progress stay in the list as overdue ("Overdue since 22
+Oct"), but quietly: no nudges and no catch-up. Each can be marked Done, or **Skipped** (a missed day
+that won't be done; it stays quiet and shows as skipped). If the latest day is Done, nothing nudges
+for that task. A missed bill from last month still shows, quietly, while this month's nudges. The
+evening-before heads-up for a day to come isn't affected.
 
 **Missed nudges.** If the phone was off, or the app couldn't run, at a nudge time, one catch-up
 nudge comes as soon as it can (at start-up, or when the app opens): one per unanswered occurrence,
@@ -100,6 +108,14 @@ progress.
 
 iOS shows all four on the notification. Android shows three buttons (Done, In progress, Not today);
 tapping the notification opens the task, with Snooze 1 hour and "Move to…" (pick a day).
+
+## Editing
+
+Editing a one-off task's day moves its one occurrence to the new day and keeps its state: an
+unanswered overdue task becomes due on the new day and stops being overdue, and Done stays Done.
+Editing a repeating task's day or repeat re-plans its occurrences from today on; days already
+answered stay as they were. A repeating task whose first day is already past gets that day
+(overdue), then its days from the day it was created.
 
 ## Repeats
 
@@ -175,3 +191,9 @@ miss, deadline 04:00, created 7 Mar, no quiet hours: the final three hours from 
 three hours from 00:00 give 00:00, 00:30, 01:00, then 01:30 (the alarm: the last hour, 02:00 to
 03:00, doesn't exist, and 02:00 and 02:30 fold to 03:00 and later, so they're dropped), then 03:00,
 deadline passed.
+
+
+**12. A daily task left for a week.** "Water the plants", daily from 22 Oct, created 21 Oct, never
+answered. On 29 Oct the days from 22 to 28 Oct are listed as overdue, quietly, and only 29 Oct
+nudges: 10:00, 13:00, 16:00, 19:00. Done on 29 Oct at 10:05 stops that day's nudges; the earlier
+days stay listed until each is marked Done or Skipped.
