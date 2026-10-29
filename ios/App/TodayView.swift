@@ -84,6 +84,7 @@ private struct NothingToday: View {
 /// for the other answers; tap for the detail.
 struct OccurrenceRow: View {
     @Environment(Nudger.self) private var nudger
+    @Environment(\.dynamicTypeSize) private var typeSize
     let occurrence: Occurrence
     let today: Day
     let now: Date
@@ -93,7 +94,11 @@ struct OccurrenceRow: View {
     var body: some View {
         let status = statusLine
         let next = nextLine
-        HStack(alignment: .top, spacing: 12) {
+        // At the largest sizes the Done button sits above the text, which then has the full width.
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
+        layout {
             DoneButton(occurrence: occurrence)
             NavigationLink(value: OccurrenceLink(ref: occurrence.id)) {
                 VStack(alignment: .leading, spacing: 3) {
@@ -111,9 +116,15 @@ struct OccurrenceRow: View {
                         .font(.subheadline)
                         .foregroundStyle(occurrence.isOverdue(today: today) ? .overdue : .secondary)
                     if let next {
-                        Label(next, systemImage: "bell")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                        Group {
+                            if typeSize.isAccessibilitySize {
+                                Text(next)
+                            } else {
+                                Label(next, systemImage: "bell")
+                            }
+                        }
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                     }
                 }
             }
