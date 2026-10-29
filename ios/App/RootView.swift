@@ -35,7 +35,6 @@ struct RootView: View {
             .tabItem { Label("Settings", systemImage: "gearshape") }
             .tag(Tab.settings)
         }
-        .tint(.ardaivitsko)
         // The widget: ardaivitsko://today, or ardaivitsko://task/<occurrence>.
         .onOpenURL { url in
             guard url.scheme == "ardaivitsko" else { return }

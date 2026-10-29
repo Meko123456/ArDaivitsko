@@ -32,6 +32,8 @@ struct ArDaivitskoApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                // Here rather than on the tab view, so sheets presented from the root get it too.
+                .tint(.ardaivitsko)
                 .environment(nudger)
                 .modelContainer(nudger.store.container)
         }
