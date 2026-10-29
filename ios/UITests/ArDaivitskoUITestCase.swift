@@ -95,15 +95,21 @@ class ArDaivitskoUITestCase: XCTestCase {
         app.buttons.matching(NSPredicate(format: "label == %@ AND value != nil", title)).firstMatch
     }
 
-    /// Scrolls until `element` exists: a List builds only the rows on screen.
+    /// Scrolls until `element` exists and sits clear of the floating tab bar: a List builds only
+    /// the rows on screen, and a tap on a row under the tab bar lands on a tab.
     @MainActor
     func scroll(to element: XCUIElement, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
         var swipes = 0
-        while !element.waitForExistence(timeout: 2), swipes < 8 {
+        while !element.waitForExistence(timeout: 2), swipes < 12 {
             app.swipeUp()
             swipes += 1
         }
         XCTAssertTrue(element.exists, "\(element) not found after \(swipes) swipes", file: file, line: line)
+        let bottom = app.windows.firstMatch.frame.maxY - 150
+        while element.exists, element.frame.maxY > bottom, swipes < 12 {
+            app.swipeUp(velocity: .slow)
+            swipes += 1
+        }
     }
 
     /// Waits until an element's accessibility value contains `text`.

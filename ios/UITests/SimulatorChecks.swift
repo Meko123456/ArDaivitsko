@@ -165,6 +165,61 @@ final class SimulatorChecks: ArDaivitskoUITestCase {
         XCTAssertEqual(pending.label, "Pay rent: 0 pending")
     }
 
+    /// Every screen with tasks in each state, saved as "<ARDAIVITSKO_SHOT_PREFIX>-<screen>.png".
+    /// Set the appearance and text size from outside (`xcrun simctl ui`) to sweep light, dark and
+    /// the largest accessibility size.
+    @MainActor
+    func testScreens() throws {
+        let prefix = ProcessInfo.processInfo.environment["ARDAIVITSKO_SHOT_PREFIX"] ?? "screens"
+        var bill = NudgeRule.standard
+        bill.cantMiss = true
+        var early = NudgeRule.standard
+        early.deadline = TimeOfDay(hour: 18, minute: 0)
+        early.interval = 2
+        let app = try launch(with: [
+            Seed.Entry(title: "Renew the parking permit", dayOffset: -2, createdOffset: -4 * 86_400),
+            Seed.Entry(title: "Call the bank", dayOffset: -1, createdOffset: -3 * 86_400, state: .inProgress, inProgressOffset: -3 * 3_600),
+            Seed.Entry(title: "Pay the credit card bill", note: "Card ending 4402, minimum payment due", rule: bill),
+            Seed.Entry(title: "Buy medicine", rule: early),
+            Seed.Entry(title: "Water the plants", repeats: .weekly, state: .done),
+            Seed.Entry(title: "Pay rent", dayOffset: 3, repeats: .monthly),
+            // A day with everything done: a hollow mark in the calendar.
+            Seed.Entry(title: "Book the dentist", dayOffset: -5, createdOffset: -6 * 86_400, state: .done),
+        ])
+        XCTAssertTrue(row("Renew the parking permit", in: app).waitForExistence(timeout: 30))
+        save("\(prefix)-today")
+        // At the largest sizes the rows below the first screen aren't built until scrolled to.
+        let billRow = row("Pay the credit card bill", in: app)
+        scroll(to: billRow, in: app)
+        save("\(prefix)-today-2")
+
+        tapWhenHittable(billRow)
+        XCTAssertTrue(app.staticTexts["Card ending 4402, minimum payment due"].waitForExistence(timeout: 30))
+        save("\(prefix)-detail")
+        app.swipeUp()
+        save("\(prefix)-detail-2")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        tapWhenHittable(app.buttons["New Task"])
+        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 30))
+        save("\(prefix)-editor")
+        app.swipeUp()
+        save("\(prefix)-editor-2")
+        app.buttons["Cancel"].tap()
+
+        tapWhenHittable(app.buttons["Calendar"])
+        XCTAssertTrue(app.buttons["Next month"].waitForExistence(timeout: 30))
+        save("\(prefix)-calendar")
+        app.swipeUp()
+        save("\(prefix)-calendar-2")
+
+        tapWhenHittable(app.buttons["Settings"])
+        XCTAssertTrue(app.switches["Quiet hours"].waitForExistence(timeout: 30))
+        save("\(prefix)-settings")
+        app.swipeUp()
+        save("\(prefix)-settings-2")
+    }
+
     /// While the alarm sounds over the open app, Done in the app silences it.
     @MainActor
     func testAnsweringInTheAppStopsASoundingAlarm() throws {
