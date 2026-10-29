@@ -67,10 +67,23 @@ final class NotificationAnswers: NSObject, UNUserNotificationCenterDelegate, Sen
     }
 
     /// Done, In progress, Not today, Snooze 1 hour or Undo: saved, then everything rescheduled.
-    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        let userInfo = response.notification.request.content.userInfo
-        guard let answer = NudgeResponse(actionIdentifier: response.actionIdentifier, userInfo: userInfo) else { return }
-        await Nudger.shared.handle(answer)
+    ///
+    /// The completion-handler form, called back on the main thread: with the async form Swift
+    /// calls the system's handler from a background thread, and UIKit, updating its snapshot after
+    /// a background answer, stops the app with an assertion.
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let answer = NudgeResponse(actionIdentifier: response.actionIdentifier, userInfo: response.notification.request.content.userInfo)
+        nonisolated(unsafe) let completion = completionHandler
+        Task { @MainActor in
+            if let answer {
+                await Nudger.shared.handle(answer)
+            }
+            completion()
+        }
     }
 }
 
