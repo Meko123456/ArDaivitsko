@@ -72,6 +72,38 @@ class AnswersTest {
     }
 
     @Test
+    fun `skip sets a missed day aside, and a stale answer afterwards changes nothing`() {
+        val missed = OccurrenceStatus(day = day("2026-10-22"))
+
+        val skipped = Answers.skip(missed, at("2026-10-29 12:00"))
+
+        assertEquals(OccurrenceState.SKIPPED, skipped.state)
+        assertTrue(skipped.state.isClosed)
+        assertEquals(skipped, Answers.inProgress(skipped, at("2026-10-29 13:00")))
+        assertEquals(skipped, Answers.snooze(skipped, at("2026-10-29 13:00")))
+        assertEquals(skipped, Answers.notToday(skipped, today))
+        assertEquals(skipped, Answers.skip(skipped, at("2026-10-29 14:00")))
+        assertFalse(Answers.canMoveToTomorrow(skipped, today))
+    }
+
+    @Test
+    fun `a skipped day can still turn out done, and a done one isn't skipped`() {
+        val skipped = Answers.skip(OccurrenceStatus(day = day("2026-10-22")), at("2026-10-29 12:00"))
+        val done = Answers.done(OccurrenceStatus(day = day("2026-10-23")), at("2026-10-29 12:00"))
+
+        assertEquals(OccurrenceState.DONE, Answers.done(skipped, at("2026-10-29 13:00")).state)
+        assertEquals(done, Answers.skip(done, at("2026-10-29 13:00")))
+    }
+
+    @Test
+    fun `reopen opens a skipped day again`() {
+        val skipped = Answers.skip(OccurrenceStatus(day = day("2026-10-22")), at("2026-10-29 12:00"))
+
+        assertEquals(OccurrenceState.OPEN, Answers.reopen(skipped).state)
+        assertNull(Answers.reopen(skipped).doneAt)
+    }
+
+    @Test
     fun `reopen makes a done occurrence open again`() {
         val reopened = Answers.reopen(Answers.done(open, at("2026-10-29 12:00")))
 

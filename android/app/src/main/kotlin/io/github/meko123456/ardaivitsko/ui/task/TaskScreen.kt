@@ -121,6 +121,14 @@ fun TaskScreen(viewModel: TaskViewModel, onBack: () -> Unit, onEdit: (Long) -> U
             }
             if (state.done) {
                 OutlinedButton(onClick = viewModel::reopen, modifier = Modifier.fillMaxWidth()) { Text("Mark as not done") }
+            } else if (state.quiet) {
+                Text(
+                    "An earlier day of a repeating task. It stays here, quietly, while its latest day nudges: mark it done, or skip it if it won't be done.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Button(onClick = viewModel::done, modifier = Modifier.fillMaxWidth()) { Text("Done") }
+                OutlinedButton(onClick = viewModel::skip, modifier = Modifier.fillMaxWidth()) { Text("Skip") }
             } else {
                 Button(onClick = viewModel::done, modifier = Modifier.fillMaxWidth()) { Text("Done") }
                 FilledTonalButton(onClick = viewModel::inProgress, modifier = Modifier.fillMaxWidth()) { Text("In progress") }

@@ -92,7 +92,7 @@ class TodayWidget : GlanceAppWidget() {
             val today = container.time.today()
             val texts = container.formats.texts(container.time.zone())
             return container.store.observeActive(today).first()
-                .filter { !it.isDone }
+                .filter { !it.isClosed }
                 .sortedWith(compareBy({ it.day >= today }, { it.day }, { it.task.deadline }))
                 .map { WidgetRow(it.id, it.task.title, texts.dueLine(it.day, it.task.deadline, today), overdue = it.day < today) }
         }

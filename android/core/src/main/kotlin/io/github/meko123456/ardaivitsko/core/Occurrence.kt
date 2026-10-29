@@ -17,6 +17,13 @@ enum class OccurrenceState {
 
     /** "Not today" (or Move to…) gave it another day; it now belongs to that day and nudges like Open. */
     MOVED,
+
+    /** A repeating task's earlier missed day, set aside: quiet, like Done. */
+    SKIPPED,
+    ;
+
+    /** Done or Skipped: nothing more to do, and it never nudges again. */
+    val isClosed: Boolean get() = this == DONE || this == SKIPPED
 }
 
 /**

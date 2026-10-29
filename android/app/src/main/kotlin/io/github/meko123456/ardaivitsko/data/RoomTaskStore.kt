@@ -36,6 +36,12 @@ class RoomTaskStore(private val database: AppDatabase) : TaskStore {
 
     override suspend fun undone(): List<OccurrenceItem> = dao.undone().map { it.toItem() }
 
+    override suspend fun latestDays(today: LocalDate): Map<Long, LocalDate> =
+        dao.latestDays(today).associate { it.taskId to it.latestDay }
+
+    override fun observeLatestDays(today: LocalDate): Flow<Map<Long, LocalDate>> =
+        dao.observeLatestDays(today).map { rows -> rows.associate { it.taskId to it.latestDay } }
+
     override suspend fun addTask(task: Task, today: LocalDate, through: LocalDate): Long = database.withTransaction {
         val id = dao.insertTask(task.toEntity(seriesFrom = today))
         materializeTask(checkNotNull(dao.task(id)), through, lastNudgedAt = null)

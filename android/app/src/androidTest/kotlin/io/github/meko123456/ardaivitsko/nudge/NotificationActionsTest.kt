@@ -95,7 +95,7 @@ class NotificationActionsTest {
         assertEquals(listOf("Done", "In progress"), notification.actions.map { it.title.toString() })
         notification.action("Done").send()
 
-        waitFor("Done to be saved") { occurrence(item.id)?.takeIf { it.isDone } }
+        waitFor("Done to be saved") { occurrence(item.id)?.takeIf { it.state == OccurrenceState.DONE } }
         waitFor("the notification to go") { if (shown(AndroidNotifier.TAG_NUDGE, item.id) == null) Unit else null }
         assertTrue(!alarmPending(item.id), "no alarm left for a done task")
     }

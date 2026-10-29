@@ -2,6 +2,9 @@ package io.github.meko123456.ardaivitsko.core
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * The worked examples at the end of docs/behaviour.md, exactly as written there: Asia/Tbilisi,
@@ -128,6 +131,55 @@ class WorkedExamplesTest {
             regularDay("28 Oct", "regular", "10:00", "13:00", "16:00", "19:00") +
                 regularDay("28 Oct", "final", "21:00", "21:30", "22:00", "22:30"),
             nudges.filter { it.at < snoozedAt && it.kind != NudgeKind.HEADS_UP }.lines(),
+        )
+    }
+
+    @Test
+    fun `12 a daily task left for a week nudges only for its latest day`() {
+        val plants = Task(title = "Water the plants", day = day("2026-10-22"), repeat = Repeat.DAILY, createdAt = at("2026-10-21 09:00"))
+        val today = day("2026-10-29")
+        val days = Repeats.daysToMaterialize(plants.day, plants.repeat, seriesFrom = day("2026-10-21"), after = null, through = today)
+        val latest = OneNudgePerTask.latestDay(days, today)
+
+        // 22 to 28 Oct stay listed as overdue, quietly; only 29 Oct nudges.
+        assertEquals((22..28).map { day("2026-10-%02d".format(it)) }, days.filter { OneNudgePerTask.isQuiet(it, latest) })
+        assertEquals(day("2026-10-29"), latest)
+        assertEquals(
+            regularDay("29 Oct", "regular", "10:00", "13:00", "16:00", "19:00"),
+            planner.plan(Occurrence.of(plants, OccurrenceStatus(day = today)), through = today).lines(),
+        )
+
+        // Done at 10:05 stops that day's nudges, and the earlier days stay quiet: nothing nudges.
+        val done = Answers.done(OccurrenceStatus(day = today), at("2026-10-29 10:05"))
+        assertNull(planner.next(Occurrence.of(plants, done), after = at("2026-10-29 10:05")))
+        assertTrue(days.dropLast(1).all { OneNudgePerTask.isQuiet(it, latest) })
+    }
+
+    @Test
+    fun `13 a moved day keeps its place among the task's days`() {
+        // A daily task's 29 Oct moved to 30 Oct: nothing nudges on the 29th, the 30th's own day nudges.
+        val plants = Task(title = "Water the plants", day = day("2026-10-22"), repeat = Repeat.DAILY, createdAt = at("2026-10-21 09:00"))
+        val moved = Answers.notToday(OccurrenceStatus(day = day("2026-10-29")), today = day("2026-10-29"))
+        val planned = listOf(day("2026-10-28"), day("2026-10-29"))
+
+        val on29 = OneNudgePerTask.latestDay(planned, day("2026-10-29"))
+        assertTrue(OneNudgePerTask.isQuiet(day("2026-10-28"), on29)) // the older open day stays quiet
+        assertTrue(planner.plan(Occurrence.of(plants, moved), through = day("2026-10-30")).none { it.at < at("2026-10-30 00:00") })
+
+        val on30 = OneNudgePerTask.latestDay(planned + day("2026-10-30"), day("2026-10-30"))
+        assertEquals(day("2026-10-30"), on30)
+        assertTrue(OneNudgePerTask.isQuiet(day("2026-10-29"), on30)) // the moved one sits quietly on the 30th
+
+        // A monthly task moved from the 1st to the 2nd still nudges on the 2nd: the 1st is still its latest day.
+        val rent = Task(title = "Pay rent", day = day("2026-10-01"), repeat = Repeat.MONTHLY, createdAt = at("2026-09-30 09:00"))
+        val movedRent = Answers.notToday(OccurrenceStatus(day = day("2026-11-01")), today = day("2026-11-01"))
+        val monthly = Repeats.days(rent.day, rent.repeat, from = rent.day, to = day("2026-11-02"))
+
+        assertEquals(day("2026-11-01"), OneNudgePerTask.latestDay(monthly, day("2026-11-02")))
+        assertFalse(OneNudgePerTask.isQuiet(day("2026-11-01"), OneNudgePerTask.latestDay(monthly, day("2026-11-02"))))
+        assertEquals(
+            regularDay("2 Nov", "regular", "10:00", "13:00", "16:00", "19:00"),
+            planner.plan(Occurrence.of(rent, movedRent), through = day("2026-11-02")).lines(),
         )
     }
 

@@ -3,7 +3,6 @@ package io.github.meko123456.ardaivitsko.nudge
 import io.github.meko123456.ardaivitsko.core.Answers
 import io.github.meko123456.ardaivitsko.core.Nudge
 import io.github.meko123456.ardaivitsko.core.NudgePlanner
-import io.github.meko123456.ardaivitsko.core.OccurrenceState
 import io.github.meko123456.ardaivitsko.core.Task
 import io.github.meko123456.ardaivitsko.core.deliver
 import io.github.meko123456.ardaivitsko.data.OccurrenceItem
@@ -45,6 +44,7 @@ sealed interface Answer {
     data object InProgress : Answer
     data object NotToday : Answer
     data object Snooze : Answer
+    data object Skip : Answer
     data class MoveTo(val day: LocalDate) : Answer
     data object UndoMove : Answer
     data object Reopen : Answer
@@ -55,7 +55,8 @@ sealed interface Answer {
  *
  * [reconcile] is the whole of scheduling: it writes out the coming days' occurrences, posts each
  * occurrence's due nudge (one catch-up when several were missed), and sets one alarm per
- * occurrence for its next nudge. It runs after every alarm, answer and edit, at midnight, on boot,
+ * occurrence for its next nudge. Only a task's latest day so far nudges; its earlier open days
+ * are quiet (OneNudgePerTask). It runs after every alarm, answer and edit, at midnight, on boot,
  * on a clock, time zone or app update, and whenever the app opens, so a lost alarm is only ever
  * lost until the next of those.
  */
@@ -88,13 +89,14 @@ class NudgeService(
             Answer.InProgress -> Answers.inProgress(item.status, now)
             Answer.NotToday -> Answers.notToday(item.status, today)
             Answer.Snooze -> Answers.snooze(item.status, now)
+            Answer.Skip -> Answers.skip(item.status, now)
             is Answer.MoveTo -> Answers.moveTo(item.status, answer.day)
             Answer.UndoMove -> Answers.undoMove(item.status)
             Answer.Reopen -> Answers.reopen(item.status)
         }
         store.saveStatus(occurrenceId, status, answeredAt = now)
         notifier.cancel(occurrenceId)
-        if (status.state == OccurrenceState.DONE) alarms.cancel(occurrenceId)
+        if (status.state.isClosed) alarms.cancel(occurrenceId)
         reconcileLocked()
         store.occurrence(occurrenceId)
     }
@@ -139,7 +141,16 @@ class NudgeService(
         // Tomorrow's occurrences exist a day ahead, for a Can't-miss task's heads-up the evening before.
         store.materialize(through = today.plusDays(DAYS_AHEAD))
         val planner = NudgePlanner(settings.current().nudgeSettings, zone)
-        val deliveries = store.undone().map { it to planner.deliver(it.occurrence, it.lastNudgedAt, now) }
+        // One nudge per task: a repeating task's earlier open days stay listed but quiet, with no
+        // nudge, no alarm and no catch-up, and lose any notification still showing (yesterday's,
+        // once today's day has come).
+        val latestDays = store.latestDays(today)
+        val (quiet, nudging) = store.undone().partition { it.isQuiet(latestDays) }
+        for (item in quiet) {
+            notifier.cancel(item.id)
+            alarms.cancel(item.id)
+        }
+        val deliveries = nudging.map { it to planner.deliver(it.occurrence, it.lastNudgedAt, now) }
         // Android mutes an app's later notifications in a burst, so the strongest (a Can't-miss alarm)
         // goes first when several are due at once.
         for ((item, delivery) in deliveries.sortedByDescending { it.second.post?.kind?.strength ?: -1 }) {

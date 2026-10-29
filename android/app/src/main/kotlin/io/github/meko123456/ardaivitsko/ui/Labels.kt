@@ -8,11 +8,12 @@ import io.github.meko123456.ardaivitsko.time.TextFormats
 import java.time.format.TextStyle
 import java.util.Locale
 
-/** "Open", "In progress", "Done", or "Moved from 28 Oct". */
+/** "Open", "In progress", "Done", "Skipped", or "Moved from 28 Oct". */
 fun statusLabel(status: OccurrenceStatus, formats: TextFormats): String = when (status.state) {
     OccurrenceState.OPEN -> "Open"
     OccurrenceState.IN_PROGRESS -> "In progress"
     OccurrenceState.DONE -> "Done"
+    OccurrenceState.SKIPPED -> "Skipped"
     OccurrenceState.MOVED -> status.movedFrom?.let { "Moved from ${formats.date(it)}" } ?: "Moved"
 }
 

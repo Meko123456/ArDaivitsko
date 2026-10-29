@@ -95,7 +95,7 @@ class NudgePlanner(private val settings: NudgeSettings, private val zone: ZoneId
     }
 
     private fun nudges(occurrence: Occurrence, fromDate: LocalDate, toDate: LocalDate): List<Nudge> {
-        if (occurrence.state == OccurrenceState.DONE) return emptyList()
+        if (occurrence.state.isClosed) return emptyList()
         val found = ArrayList<Nudge>()
         val window = if (occurrence.cantMiss) FinalWindow(occurrence) else null
         var date = maxOf(fromDate, occurrence.day)

@@ -27,7 +27,7 @@ import java.time.format.TextStyle
 import java.time.temporal.WeekFields
 import java.util.Locale
 
-/** Filled while anything that day is still open; hollow when everything is done. */
+/** Filled while anything that day is still open; hollow when everything is done or skipped. */
 enum class Mark { OPEN, ALL_DONE }
 
 data class DayCell(val date: LocalDate, val mark: Mark?, val isToday: Boolean, val selected: Boolean)
@@ -102,7 +102,7 @@ class CalendarViewModel(
                 taskId = item.task.id,
                 title = item.task.title,
                 line = statusLabel(item.status, formats) + " · " + texts.dueLine(item.day, item.task.deadline, today),
-                done = item.isDone,
+                done = item.isClosed,
                 cantMiss = item.task.cantMiss,
             )
         }

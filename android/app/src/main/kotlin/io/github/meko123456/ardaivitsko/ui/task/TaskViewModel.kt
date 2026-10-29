@@ -23,8 +23,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -50,8 +52,11 @@ data class TaskState(
     val canUndoMove: Boolean = false,
     /** "This is the last day. Move it anyway?" is showing. */
     val confirmingMove: Boolean = false,
+    /** An earlier day of a repeating task, quiet while a later day nudges: it offers Done and Skip. */
+    val quiet: Boolean = false,
 ) {
-    val done: Boolean get() = state == OccurrenceState.DONE
+    /** Done or Skipped. */
+    val done: Boolean get() = state.isClosed
 }
 
 sealed interface TaskEvent {
@@ -96,13 +101,19 @@ class TaskViewModel(
         }
     }
 
+    private val latestDays: Flow<Map<Long, LocalDate>> = clock
+        .map { it.atZone(time.zone()).toLocalDate() }
+        .distinctUntilChanged()
+        .flatMapLatest { store.observeLatestDays(it) }
+
     val state: StateFlow<TaskState> = combine(
         store.observeOccurrence(occurrenceId),
         clock,
         settings.settings,
         handle.getStateFlow(KEY_CONFIRMING, false),
-    ) { item, now, settings, confirming ->
-        if (item == null) TaskState(loading = false, missing = true) else build(item, now, NudgePlanner(settings.nudgeSettings, time.zone()), confirming)
+        latestDays,
+    ) { item, now, settings, confirming, latest ->
+        if (item == null) TaskState(loading = false, missing = true) else build(item, now, NudgePlanner(settings.nudgeSettings, time.zone()), confirming, latest)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TaskState())
 
     fun refresh() {
@@ -147,7 +158,10 @@ class TaskViewModel(
 
     fun undoMove() = act(Answer.UndoMove) { item -> "Back on ${formats.date(item.day)}" }
 
-    fun reopen() = act(Answer.Reopen) { "Open again. It will nudge from now on." }
+    fun reopen() = act(Answer.Reopen) { "Open again." }
+
+    /** Skip: an earlier missed day that won't be done. It stays in the calendar, as skipped. */
+    fun skip() = act(Answer.Skip) { "Skipped. It won't nudge or be listed again." }
 
     fun delete() {
         viewModelScope.launch {
@@ -173,9 +187,10 @@ class TaskViewModel(
 
     private fun today(): LocalDate = time.now().atZone(time.zone()).toLocalDate()
 
-    private fun build(item: OccurrenceItem, now: Instant, planner: NudgePlanner, confirming: Boolean): TaskState {
+    private fun build(item: OccurrenceItem, now: Instant, planner: NudgePlanner, confirming: Boolean, latestDays: Map<Long, LocalDate>): TaskState {
         val today = now.atZone(time.zone()).toLocalDate()
         val texts = formats.texts(time.zone())
+        val quiet = item.isQuiet(latestDays)
         return TaskState(
             loading = false,
             taskId = item.task.id,
@@ -186,12 +201,17 @@ class TaskViewModel(
             state = item.state,
             status = statusLabel(item.status, formats),
             dueLine = texts.dueLine(item.day, item.task.deadline, today),
-            nextNudge = if (item.isDone) null else texts.nextNudge(planner.next(item.occurrence, now), now),
+            nextNudge = when {
+                item.isClosed -> null
+                quiet -> "No nudges: a later day of this task nudges instead"
+                else -> texts.nextNudge(planner.next(item.occurrence, now), now)
+            },
             day = item.day,
-            canMoveToTomorrow = Answers.canMoveToTomorrow(item.status, today),
-            canSnooze = !item.isDone && item.day <= today,
-            canUndoMove = item.state == OccurrenceState.MOVED && item.status.movedFrom != null,
-            confirmingMove = confirming && !item.isDone && Answers.notTodayNeedsConfirmation(item.task, item.status, today),
+            canMoveToTomorrow = !quiet && Answers.canMoveToTomorrow(item.status, today),
+            canSnooze = !quiet && !item.isClosed && item.day <= today,
+            canUndoMove = !quiet && item.state == OccurrenceState.MOVED && item.status.movedFrom != null,
+            confirmingMove = confirming && !item.isClosed && Answers.notTodayNeedsConfirmation(item.task, item.status, today),
+            quiet = quiet,
         )
     }
 

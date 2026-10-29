@@ -125,7 +125,7 @@ class FakeTaskStore : TaskStore {
             .map { OccurrenceItem(it.id, tasks.getValue(it.taskId).task, it.originalDay, it.status, it.lastNudgedAt) }
     }
 
-    override fun observeActive(today: LocalDate) = items.map { all -> all.filter { (!it.isDone && it.day <= today) || it.day == today } }
+    override fun observeActive(today: LocalDate) = items.map { all -> all.filter { (!it.isClosed && it.day <= today) || it.day == today } }
 
     override fun observeBetween(from: LocalDate, to: LocalDate) = items.map { all -> all.filter { it.day in from..to } }
 
@@ -137,7 +137,14 @@ class FakeTaskStore : TaskStore {
 
     override suspend fun task(id: Long) = tasks.value[id]?.task
 
-    override suspend fun undone() = items.first().filter { !it.isDone }
+    override suspend fun undone() = items.first().filter { !it.isClosed }
+
+    override suspend fun latestDays(today: LocalDate): Map<Long, LocalDate> = latestOf(rows.value.values, today)
+
+    override fun observeLatestDays(today: LocalDate): Flow<Map<Long, LocalDate>> = rows.map { latestOf(it.values, today) }
+
+    private fun latestOf(all: Collection<Row>, today: LocalDate): Map<Long, LocalDate> =
+        all.filter { it.originalDay <= today }.groupBy { it.taskId }.mapValues { (_, rows) -> rows.maxOf { it.originalDay } }
 
     override suspend fun addTask(task: Task, today: LocalDate, through: LocalDate): Long {
         val id = nextTaskId++
@@ -172,7 +179,7 @@ class FakeTaskStore : TaskStore {
                 stale
             }
         }
-        rows.update { all -> all.mapValues { (_, row) -> if (row.taskId == task.id && row.status.state != OccurrenceState.DONE) row.copy(lastNudgedAt = now) else row } }
+        rows.update { all -> all.mapValues { (_, row) -> if (row.taskId == task.id && !row.status.state.isClosed) row.copy(lastNudgedAt = now) else row } }
         return removed
     }
 
@@ -203,7 +210,7 @@ class FakeTaskStore : TaskStore {
     }
 
     override suspend fun acknowledgeAll(at: Instant) {
-        rows.update { all -> all.mapValues { (_, row) -> if (row.status.state != OccurrenceState.DONE) row.copy(lastNudgedAt = at) else row } }
+        rows.update { all -> all.mapValues { (_, row) -> if (!row.status.state.isClosed) row.copy(lastNudgedAt = at) else row } }
     }
 
     /** Test setup: an occurrence's status as if answered long ago, without touching lastNudgedAt. */

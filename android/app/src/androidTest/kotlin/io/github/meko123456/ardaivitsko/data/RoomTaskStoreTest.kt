@@ -141,6 +141,58 @@ class RoomTaskStoreTest {
     }
 
     @Test
+    fun each_tasks_latest_day_so_far_is_the_one_that_nudges() = runTest {
+        val daily = store.addTask(task("Plants", day = today.minusDays(3), repeat = Repeat.DAILY), today.minusDays(4), through = tomorrow)
+        val weekly = store.addTask(task("Call mum", day = today.minusDays(10), repeat = Repeat.WEEKLY), today.minusDays(11), through = tomorrow)
+        val ahead = store.addTask(task("Christmas cards", day = LocalDate.parse("2026-12-24")), today, through = tomorrow)
+
+        val latest = store.latestDays(today)
+
+        assertEquals(today, latest[daily])
+        assertEquals(today.minusDays(3), latest[weekly]) // 19 Oct, then 26 Oct: Mondays before Thursday 29 Oct
+        assertNull(latest[ahead])
+        assertEquals(latest, store.observeLatestDays(today).first())
+    }
+
+    @Test
+    fun a_skipped_day_leaves_the_today_list_like_a_done_one() = runTest {
+        store.addTask(task("Plants", day = today.minusDays(2), repeat = Repeat.DAILY), today.minusDays(3), through = tomorrow)
+        val missed = store.undone().single { it.day == today.minusDays(2) }
+
+        store.saveStatus(missed.id, Answers.skip(missed.status, now), answeredAt = now)
+
+        assertEquals(listOf(today.minusDays(1), today), store.observeActive(today).first().map { it.day })
+        assertTrue(store.undone().none { it.id == missed.id })
+    }
+
+    @Test
+    fun editing_a_one_off_tasks_day_moves_its_occurrence_and_keeps_its_state() = runTest {
+        val overdue = store.addTask(task("Overdue", day = today.minusDays(3)), today.minusDays(4), through = tomorrow)
+        val done = store.addTask(task("Done", day = today.minusDays(3)), today.minusDays(4), through = tomorrow)
+        val started = store.addTask(task("Started", day = today.minusDays(3)), today.minusDays(4), through = tomorrow)
+        val doneItem = store.undone().single { it.task.id == done }
+        store.saveStatus(doneItem.id, Answers.done(doneItem.status, now), answeredAt = now)
+        val startedItem = store.undone().single { it.task.id == started }
+        val marked = Answers.inProgress(startedItem.status, now)
+        store.saveStatus(startedItem.id, marked, answeredAt = now)
+
+        for (id in listOf(overdue, done, started)) {
+            store.updateTask(store.task(id)!!.copy(day = today), today, through = tomorrow, now = now)
+        }
+
+        val active = store.observeActive(today).first().associateBy { it.task.id }
+        // An unanswered overdue one is due today now, and no longer overdue.
+        assertEquals(today, active.getValue(overdue).day)
+        assertEquals(OccurrenceState.OPEN, active.getValue(overdue).state)
+        // Done stays Done, In progress stays In progress, each still a single occurrence.
+        assertEquals(OccurrenceState.DONE, active.getValue(done).state)
+        assertEquals(today, active.getValue(done).day)
+        assertEquals(OccurrenceState.IN_PROGRESS, active.getValue(started).state)
+        assertEquals(marked.inProgressSince, active.getValue(started).status.inProgressSince)
+        assertEquals(3, active.size)
+    }
+
+    @Test
     fun deleting_a_task_deletes_its_occurrences() = runTest {
         val taskId = store.addTask(task("Vitamins", repeat = Repeat.DAILY), today, through = tomorrow)
 
