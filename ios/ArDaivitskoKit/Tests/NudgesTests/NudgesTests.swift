@@ -159,6 +159,22 @@ struct SchedulerTests {
         #expect(center.pending.map(\.identifier) == [NudgeIdentifier.nudge(scheduled(rent, 13, 0))])
     }
 
+    @Test("A new day takes away yesterday's shown nudges and every one of a quiet day, and leaves today's")
+    func tidy() async {
+        let yesterdays = occurrence("old", on: today.adding(days: -1))
+        let todays = occurrence("new", on: today)
+        let scheduler = scheduler
+        await scheduler.sync([scheduled(yesterdays, 19, 0), scheduled(todays, 10, 0)], catchUps: [], wording: wording, now: at(today.adding(days: -1), 9, 0))
+        center.deliver(through: at(today, 10, 0), calendar: tbilisi)
+        try? await center.add(NudgeRequests.catchUp(for: scheduled(yesterdays, 9, 0), now: at(today, 9, 0), wording: wording))
+        #expect(center.delivered.count == 3)
+        await scheduler.tidyDelivered(before: today.start(in: tbilisi), quiet: [])
+        #expect(Set(center.delivered.map(\.identifier)) == [NudgeIdentifier.nudge(scheduled(todays, 10, 0)), "catchup.old"])
+        await scheduler.tidyDelivered(before: today.start(in: tbilisi), quiet: ["old"])
+        #expect(center.delivered.map(\.identifier) == [NudgeIdentifier.nudge(scheduled(todays, 10, 0))])
+        #expect(NudgeIdentifier.moment(in: NudgeIdentifier.nudge(scheduled(todays, 10, 0))) == at(today, 10, 0))
+    }
+
     @Test("Categories are registered")
     func categories() {
         scheduler.registerCategories()

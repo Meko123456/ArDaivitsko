@@ -173,6 +173,9 @@ public final class Nudger {
         }
         await scheduler.sync(notifications, catchUps: plan.catchUps, wording: wording, now: now)
         settings.coveredUntil = plan.coveredUntil
+        // A new day: yesterday's shown nudges go, and so do those of days that are now quiet.
+        let quiet = Set(store.unansweredOccurrences().filter { $0.isQuiet(today: today) }.map(\.id))
+        await scheduler.tidyDelivered(before: today.start(in: calendar), quiet: quiet)
         reloadWidgets()
     }
 

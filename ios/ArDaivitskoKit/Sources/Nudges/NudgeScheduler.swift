@@ -74,6 +74,18 @@ public final class NudgeScheduler {
         if !pending.isEmpty { center.removePending(pending) }
     }
 
+    /// Takes away the shown nudges a new day has made stale: any from before `dayStart`, and every
+    /// one for an occurrence in `quiet` (a repeating task's earlier day, now silent).
+    public func tidyDelivered(before dayStart: Date, quiet: Set<String>) async {
+        let stale = await center.deliveredIdentifiers().filter { identifier in
+            guard let occurrence = NudgeIdentifier.occurrenceID(in: identifier) else { return false }
+            if quiet.contains(occurrence) { return true }
+            guard NudgeIdentifier.isScheduledNudge(identifier), let moment = NudgeIdentifier.moment(in: identifier) else { return false }
+            return moment < dayStart
+        }
+        if !stale.isEmpty { center.removeDelivered(stale) }
+    }
+
     /// Says Not today moved it, with Undo.
     public func confirmMove(of occurrence: Occurrence, movedAt: Date, today: Day, wording: Wording) async {
         try? await center.add(NudgeRequests.moved(occurrence, movedAt: movedAt, today: today, wording: wording))

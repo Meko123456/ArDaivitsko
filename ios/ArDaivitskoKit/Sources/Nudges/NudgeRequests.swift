@@ -78,6 +78,13 @@ public enum NudgeIdentifier {
         identifier.hasPrefix("nudge.")
     }
 
+    /// When a scheduled nudge was due, from its identifier.
+    public static func moment(in identifier: String) -> Date? {
+        let parts = identifier.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count == 3, parts[0] == "nudge", let seconds = TimeInterval(parts[2]) else { return nil }
+        return Date(timeIntervalSince1970: seconds)
+    }
+
     public static func occurrenceID(in identifier: String) -> String? {
         let parts = identifier.split(separator: ".", omittingEmptySubsequences: false)
         guard parts.count >= 2, ["nudge", "catchup", "moved"].contains(String(parts[0])) else { return nil }
