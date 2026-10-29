@@ -26,7 +26,7 @@ final class TaskUITests: ArDaivitskoUITestCase {
     }
 
     @MainActor
-    func testAddingACantMissTaskForTomorrow() throws {
+    func testAddingACantMissTask() throws {
         let app = try launch()
         tapWhenHittable(app.buttons["New Task"])
         type("Pay the credit card bill", into: field("Title", in: app))

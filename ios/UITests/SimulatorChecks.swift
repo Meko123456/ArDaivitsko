@@ -165,6 +165,46 @@ final class SimulatorChecks: ArDaivitskoUITestCase {
         XCTAssertEqual(pending.label, "Pay rent: 0 pending")
     }
 
+    /// Tapping a nudge opens its task; on a Can't-miss task's last day, Not today on the nudge
+    /// opens the app, which asks before moving it.
+    @MainActor
+    func testTappingANudgeOpensItsTaskAndLastDayNotTodayAsks() throws {
+        var settings = NudgeSettings.standard
+        settings.quietHoursOn = false
+        var bill = NudgeRule.standard
+        bill.cantMiss = true
+        XCUIDevice.shared.press(.home)
+        let app = try launch(with: [
+            Seed.Entry(title: "Pay rent", snoozedOffset: -3_600 + 40),
+            Seed.Entry(title: "Pay the credit card bill", rule: bill, snoozedOffset: -3_600 + 100),
+        ], settings: settings)
+        XCTAssertTrue(row("Pay rent", in: app).waitForExistence(timeout: 30))
+        let settingsApp = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
+        settingsApp.launch()
+
+        let rent = springboard.descendants(matching: .any).matching(NSPredicate(format: "identifier == 'NotificationShortLookView' AND label CONTAINS 'Pay rent'")).firstMatch
+        XCTAssertTrue(rent.waitForExistence(timeout: 90), "No nudge for Pay rent")
+        rent.tap()
+        let close = app.buttons["Close"]
+        XCTAssertTrue(close.waitForExistence(timeout: 30), "The nudge didn't open its task")
+        XCTAssertTrue(app.staticTexts["Pay rent"].exists)
+        save("nudge-opened-task")
+        close.tap()
+
+        settingsApp.activate()
+        let billNudge = springboard.descendants(matching: .any).matching(NSPredicate(format: "identifier == 'NotificationShortLookView' AND label CONTAINS 'Pay the credit card bill'")).firstMatch
+        XCTAssertTrue(billNudge.waitForExistence(timeout: 120), "No nudge for the bill")
+        billNudge.press(forDuration: 1.2)
+        let notToday = springboard.buttons["Not today…"]
+        XCTAssertTrue(notToday.waitForExistence(timeout: 10), "No Not today… on the bill's last day")
+        notToday.tap()
+        let question = app.alerts["This is the last day. Move it anyway?"]
+        XCTAssertTrue(question.waitForExistence(timeout: 30), "The app didn't ask before moving")
+        save("last-day-question")
+        question.buttons["Keep It Today"].tap()
+        waitForValue(of: row("Pay the credit card bill", in: app), containing: "Due by")
+    }
+
     /// Every screen with tasks in each state, saved as "<ARDAIVITSKO_SHOT_PREFIX>-<screen>.png".
     /// Set the appearance and text size from outside (`xcrun simctl ui`) to sweep light, dark and
     /// the largest accessibility size.
