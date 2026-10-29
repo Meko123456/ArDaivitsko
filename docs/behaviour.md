@@ -192,7 +192,6 @@ three hours from 00:00 give 00:00, 00:30, 01:00, then 01:30 (the alarm: the last
 03:00, doesn't exist, and 02:00 and 02:30 fold to 03:00 and later, so they're dropped), then 03:00,
 deadline passed.
 
-
 **12. A daily task left for a week.** "Water the plants", daily from 22 Oct, created 21 Oct, never
 answered. On 29 Oct the days from 22 to 28 Oct are listed as overdue, quietly, and only 29 Oct
 nudges: 10:00, 13:00, 16:00, 19:00. Done on 29 Oct at 10:05 stops that day's nudges; the earlier
