@@ -30,35 +30,53 @@ Settings: **quiet hours** (default 22:00 to 08:00), and the defaults for new tas
 
 All times are wall-clock times in the phone's time zone: 10:00 stays 10:00 across time zones and
 daylight-saving changes. A time that doesn't exist on a day (the hour skipped in spring) moves
-forward by the gap (02:30 becomes 03:30); a time that happens twice (in autumn) is the first.
+forward by the gap (02:30 becomes 03:30); a time that happens twice (in autumn) is the first. The
+In progress and Snooze cadences follow the wall clock too: six hours from 13:05 is 19:05 on the
+clock, and an hour after 01:30 EDT on the night the clocks go back is 02:30 EST.
 
 **Regular nudges.** On the occurrence's day, while it's Open, nudges come at the start time and
 then every interval: with 10:00 and 3 hours, at 10:00, 13:00, 16:00, 19:00 and 22:00. None come
-in quiet hours (here 22:00 is one, so it's skipped), and none before the moment the task was
-created (one added at 15:20 nudges first at 16:00).
+before the moment the task was created (one added at 15:20 nudges first at 16:00).
+
+**Quiet hours** silence regular, In progress, snoozed and overdue nudges (above, 22:00 is skipped).
+They never silence a Can't-miss task's extras: the heads-up, the final three hours, the alarm and
+Deadline passed.
 
 **In progress** nudges half as often: from the moment it's marked, every twice the interval.
+Tapping In progress again starts that cadence again from the new tap.
 
 **Snooze 1 hour**: the next nudge comes an hour after the tap, and the cadence carries on from
-there (snoozed at 13:02 with 3 hours: 14:02, 17:02, 20:02).
+there (snoozed at 13:02 with 3 hours: 14:02, 17:02, 20:02). Inside a Can't-miss task's final three
+hours, a snooze skips the :00 and :30 nudges before it, and its own nudge counts as one of the
+final three hours' (quiet hours don't silence it). It never moves or drops the alarm or Deadline
+passed.
 
 **Can't miss** tasks get more:
 - **A heads-up the evening before**, at 19:00: "Tomorrow is the last day".
 - **The final three hours**: a nudge on every hour and half hour from three hours before the
   deadline until it, quiet hours or not. These replace the regular nudges in that window.
-- **An alarm**: the first of those within the last hour is a full-screen alert, like an alarm
-  clock (Android: a full-screen notification; iOS 26: AlarmKit; earlier iOS: a time-sensitive
-  notification).
-- **At the deadline**, if still not Done: "Deadline passed".
+- **An alarm**: the first of those within the last hour, and at or after the moment the task was
+  created, is a full-screen alert, like an alarm clock (Android: a full-screen notification; iOS
+  26: AlarmKit; earlier iOS: a time-sensitive notification).
+- **At the deadline**, if still not Done: "Deadline passed". If the deadline comes before the day
+  ends, regular nudges carry on until the day ends, then the task is overdue.
 - In progress doesn't stop any of these; only Done does.
+
+A task that isn't Can't miss shows its deadline in its notifications' text; its regular nudges carry
+on until the day ends, deadline or not, and then it's overdue.
 
 **Overdue.** An occurrence still Open or In progress after its day carries over: it's shown at
 the top of today as "Overdue since 28 Oct", and nudges every day from the start time on the
 regular grid (every interval if Open, twice the interval if In progress), until it's answered.
-The Can't-miss extras don't repeat after the deadline.
+The Can't-miss extras don't repeat after the deadline. A repeating task's unanswered yesterday and
+its today both nudge, as separate notifications grouped together.
 
 **Missed nudges.** If the phone was off, or the app couldn't run, at a nudge time, one catch-up
-nudge comes as soon as it can (at start-up, or when the app opens), not one for each missed time.
+nudge comes as soon as it can (at start-up, or when the app opens): one per unanswered occurrence,
+with the text of its latest missed nudge, not one for each missed time.
+
+**Two at once.** When one occurrence has two nudges at the same instant, only the strongest comes:
+Deadline passed, then the alarm, then the final three hours', then the heads-up, then the rest.
 
 ## Answers
 
@@ -67,8 +85,12 @@ From the notification, without opening the app:
 - **In progress**: nudges half as often (above).
 - **Not today**: moves the occurrence to tomorrow, same deadline time, and says so with an
   Undo. On a Can't-miss task's deadline day, the app opens and asks first ("This is the last
-  day. Move it anyway?").
+  day. Move it anyway?"). An overdue occurrence moves to the day after today. The move clears In
+  progress: on its new day it nudges like an Open one.
 - **Snooze 1 hour**.
+
+A nudge that comes before the task's own day (the evening-before heads-up) offers only Done and In
+progress.
 
 iOS shows all four on the notification. Android shows three buttons (Done, In progress, Not today);
 tapping the notification opens the task, with Snooze 1 hour and "Move to…" (pick a day).
@@ -130,3 +152,10 @@ Times are in Asia/Tbilisi (UTC+4, no daylight saving). Defaults unless stated: s
 **7. Daylight saving.** In America/New_York, day 8 Mar 2026 (clocks go from 02:00 to 03:00), start
 02:30, every 3 hours, no quiet hours, created 7 Mar: 03:30, 05:30, 08:30, 11:30, 14:30, 17:30, 20:30,
 23:30.
+
+**8. Snooze near the deadline.** As example 1, unanswered until Snooze at 28 Oct 22:40: 23:00, the
+alarm; 23:40, the snooze's nudge; 23:59, deadline passed. The 23:30 nudge is skipped.
+
+**9. Added at the last minute.** "Pay the credit card bill", day 28 Oct, Can't miss, created 28 Oct
+23:10: 23:30, the alarm (the first slot within the last hour after it was created); 23:59, deadline
+passed.
