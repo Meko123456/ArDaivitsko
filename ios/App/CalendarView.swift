@@ -120,24 +120,40 @@ private struct MonthGrid: View {
 
     private var firstWeekday: Int { Calendar.autoupdatingCurrent.firstWeekday }
 
-    var body: some View {
+    /// One identity space for the whole grid: with three ForEach loops over plain numbers the
+    /// weekday headers, the blanks and the first days shared ids, and the first week went missing.
+    private enum Cell: Hashable, Identifiable {
+        case weekday(Int, String)
+        case blank(Int)
+        case day(Day)
+
+        var id: Self { self }
+    }
+
+    private var cells: [Cell] {
         let leading = (month.weekday - firstWeekday + 7) % 7
         let length = Day.length(ofMonth: month.month, in: month.year)
+        return weekdaySymbols.enumerated().map { Cell.weekday($0.offset, $0.element) }
+            + (0..<leading).map(Cell.blank)
+            + (1...length).map { Cell.day(Day(year: month.year, month: month.month, day: $0)) }
+    }
+
+    var body: some View {
         let columns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 7)
         LazyVGrid(columns: columns, spacing: 6) {
-            ForEach(weekdaySymbols.indices, id: \.self) { index in
-                Text(weekdaySymbols[index])
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
-            }
-            ForEach(0..<leading, id: \.self) { _ in
-                Color.clear.frame(height: 1)
-            }
-            ForEach(1...length, id: \.self) { number in
-                let day = Day(year: month.year, month: month.month, day: number)
-                DayCell(day: day, isToday: day == today, isSelected: day == selected, mark: marks[day]) {
-                    choose(day)
+            ForEach(cells) { cell in
+                switch cell {
+                case .weekday(_, let symbol):
+                    Text(symbol)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                case .blank:
+                    Color.clear.frame(height: 1)
+                case .day(let day):
+                    DayCell(day: day, isToday: day == today, isSelected: day == selected, mark: marks[day]) {
+                        choose(day)
+                    }
                 }
             }
         }
