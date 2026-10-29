@@ -207,7 +207,8 @@ public struct NudgePlanner: Sendable {
         let windowStart = day.wallClock(deadlineSeconds - 3 * Self.hour, in: calendar)
         let lastHour = day.wallClock(deadlineSeconds - Self.hour, in: calendar)
 
-        // Every :00 and :30 on the wall clock in the window, before the deadline itself.
+        // Every :00 and :30 on the wall clock in the window, before the deadline itself. A slot the
+        // clocks skip folds forward by the gap, and one that lands on or past the deadline is dropped.
         var slots = Set<Date>()
         let firstSlot = Int((Double(deadlineSeconds - 3 * Self.hour) / Double(Self.halfHour)).rounded(.up)) * Self.halfHour
         for seconds in stride(from: firstSlot, to: deadlineSeconds, by: Self.halfHour) {
@@ -217,7 +218,9 @@ public struct NudgePlanner: Sendable {
             }
         }
         let ordered = slots.sorted()
-        let alarm = ordered.first { $0 >= lastHour }
+        // When the clocks skip the whole last hour (a 03:00 deadline on a spring-forward night), the
+        // alarm is the last slot before the deadline.
+        let alarm = ordered.first { $0 >= lastHour } ?? ordered.last
 
         var nudges: [Nudge] = []
         for slot in ordered {

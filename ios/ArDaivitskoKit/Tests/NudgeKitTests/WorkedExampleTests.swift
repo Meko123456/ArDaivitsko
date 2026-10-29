@@ -124,4 +124,30 @@ struct WorkedExampleTests {
         let nudges = standardPlanner.nudges(for: late, from: late.createdAt, through: at(Day(2026, 10, 28), 23, 59))
         #expect(render(nudges) == ["10-28 23:30 alarm", "10-28 23:59 deadlinePassed"])
     }
+
+    @Test("10. Spring forward, deadline 04:00: skipped slots fold forward, the alarm at 03:00")
+    func finalHoursAcrossSpring() {
+        let planner = NudgePlanner(calendar: newYork, quietHours: nil)
+        let task = occurrence(
+            on: Day(2026, 3, 8), rule: rule(deadline: TimeOfDay(4, 0), cantMiss: true),
+            created: at(Day(2026, 3, 7), 12, 0, in: newYork)
+        )
+        let nudges = planner.nudges(for: task, from: at(Day(2026, 3, 7), 21, 0, in: newYork), through: at(Day(2026, 3, 8), 9, 0, in: newYork))
+        #expect(render(nudges, in: newYork) == [
+            "03-08 01:00 final", "03-08 01:30 final", "03-08 03:00 alarm", "03-08 03:30 final", "03-08 04:00 deadlinePassed",
+        ])
+    }
+
+    @Test("11. Spring forward, deadline 03:00: no slot in the skipped last hour, so the alarm is 01:30")
+    func lastHourSkipped() {
+        let planner = NudgePlanner(calendar: newYork, quietHours: nil)
+        let task = occurrence(
+            on: Day(2026, 3, 8), rule: rule(deadline: TimeOfDay(3, 0), cantMiss: true),
+            created: at(Day(2026, 3, 7), 12, 0, in: newYork)
+        )
+        let nudges = planner.nudges(for: task, from: at(Day(2026, 3, 7), 21, 0, in: newYork), through: at(Day(2026, 3, 8), 9, 0, in: newYork))
+        #expect(render(nudges, in: newYork) == [
+            "03-08 00:00 final", "03-08 00:30 final", "03-08 01:00 final", "03-08 01:30 alarm", "03-08 03:00 deadlinePassed",
+        ])
+    }
 }

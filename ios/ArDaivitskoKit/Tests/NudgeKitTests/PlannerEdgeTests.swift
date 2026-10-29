@@ -327,13 +327,23 @@ struct DaylightSavingTests {
         #expect(planner.nextNudge(for: snoozed, after: tap).map { render($0.date, in: newYork) } == "03-08 03:30")
     }
 
-    @Test("The final three hours across the skipped hour use the wall clock")
-    func finalHoursAcrossSpring() {
-        let task = occurrence(on: spring, rule: rule(deadline: TimeOfDay(4, 0), cantMiss: true), created: ny(spring.adding(days: -2), 12, 0))
+    @Test("A 03:30 deadline on the spring-forward night: the folded 03:00 slot is the alarm")
+    func deadlineHalfPastInTheGap() {
+        let task = occurrence(on: spring, rule: rule(deadline: TimeOfDay(3, 30), cantMiss: true), created: ny(spring.adding(days: -2), 12, 0))
         let nudges = planner.nudges(for: task, from: ny(spring, 0, 0), through: ny(spring, 5, 0))
-        // From 01:00 on the clock; 02:00 and 02:30 don't exist; the last hour starts at 03:00.
+        // 02:00 folds to 03:00; 02:30 folds onto the deadline and is dropped.
         #expect(render(nudges, in: newYork) == [
-            "03-08 01:00 final", "03-08 01:30 final", "03-08 03:00 alarm", "03-08 03:30 final", "03-08 04:00 deadlinePassed",
+            "03-08 00:30 final", "03-08 01:00 final", "03-08 01:30 final", "03-08 03:00 alarm", "03-08 03:30 deadlinePassed",
         ])
+    }
+
+    @Test("Autumn: the final hours keep the first of each repeated time")
+    func finalHoursAcrossAutumn() {
+        let task = occurrence(on: autumn, rule: rule(deadline: TimeOfDay(2, 0), cantMiss: true), created: ny(autumn.adding(days: -2), 12, 0))
+        let nudges = planner.nudges(for: task, from: ny(autumn, 0, 0), through: ny(autumn, 3, 0))
+        #expect(render(nudges, in: newYork) == [
+            "11-01 00:00 final", "11-01 00:30 final", "11-01 01:00 alarm", "11-01 01:30 final", "11-01 02:00 deadlinePassed",
+        ])
+        #expect(newYork.timeZone.isDaylightSavingTime(for: nudges[2].date))
     }
 }
