@@ -9,10 +9,13 @@ class ArDaivitskoUITestCase: XCTestCase {
         // Seeded tasks make the app ask to send notifications (and, for a Can't-miss task, to sound
         // alarms). Whichever test meets a prompt allows it, the moment it next touches the app.
         addUIInterruptionMonitor(withDescription: "Permissions") { alert in
-            let allow = alert.buttons["Allow"]
-            guard allow.exists else { return false }
-            allow.tap()
-            return true
+            // Interruption monitors are called on the main thread.
+            MainActor.assumeIsolated {
+                let allow = alert.buttons["Allow"]
+                guard allow.exists else { return false }
+                allow.tap()
+                return true
+            }
         }
     }
 
