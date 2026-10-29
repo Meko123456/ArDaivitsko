@@ -19,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -148,7 +149,15 @@ private fun AlarmScreen(
             }
             Spacer(Modifier.height(16.dp))
             Button(onClick = onDone, modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Done") }
-            FilledTonalButton(onClick = onInProgress, modifier = Modifier.fillMaxWidth()) { Text("In progress") }
+            // On the alarm's own pink, the tonal default all but disappears: a light container stands out.
+            FilledTonalButton(
+                onClick = onInProgress,
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    contentColor = MaterialTheme.colorScheme.primary,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("In progress") }
             OutlinedButton(onClick = onStop, modifier = Modifier.fillMaxWidth()) { Text("Stop the alarm") }
         }
     }
