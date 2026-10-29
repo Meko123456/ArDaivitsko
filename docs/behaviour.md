@@ -32,7 +32,9 @@ All times are wall-clock times in the phone's time zone: 10:00 stays 10:00 acros
 daylight-saving changes. A time that doesn't exist on a day (the hour skipped in spring) moves
 forward by the gap (02:30 becomes 03:30); a time that happens twice (in autumn) is the first. The
 In progress and Snooze cadences follow the wall clock too: six hours from 13:05 is 19:05 on the
-clock, and an hour after 01:30 EDT on the night the clocks go back is 02:30 EST.
+clock, and an hour after 01:30 EDT on the night the clocks go back is 02:30 EST. So do "the final
+three hours" and "the last hour" before a deadline; slots that don't exist that night fold
+forward into the ones that do.
 
 **Regular nudges.** On the occurrence's day, while it's Open, nudges come at the start time and
 then every interval: with 10:00 and 3 hours, at 10:00, 13:00, 16:00, 19:00 and 22:00. None come
@@ -46,8 +48,10 @@ Deadline passed.
 Tapping In progress again starts that cadence again from the new tap.
 
 **Snooze 1 hour**: the next nudge comes an hour after the tap, and the cadence carries on from
-there (snoozed at 13:02 with 3 hours: 14:02, 17:02, 20:02). Inside a Can't-miss task's final three
-hours, a snooze skips the :00 and :30 nudges before it, and its own nudge counts as one of the
+there (snoozed at 13:02 with 3 hours: 14:02, 17:02, 20:02). A snooze that runs past midnight gives
+its one nudge after midnight (unless quiet hours silence it), and the new day keeps its own grid
+from the start time. Inside a Can't-miss task's final three hours, a snooze skips the :00 and :30
+nudges before it, and its own nudge counts as one of the
 final three hours' (quiet hours don't silence it). It never moves or drops the alarm or Deadline
 passed.
 
@@ -159,3 +163,8 @@ alarm; 23:40, the snooze's nudge; 23:59, deadline passed. The 23:30 nudge is ski
 **9. Added at the last minute.** "Pay the credit card bill", day 28 Oct, Can't miss, created 28 Oct
 23:10: 23:30, the alarm (the first slot within the last hour after it was created); 23:59, deadline
 passed.
+
+**10. A deadline on the night the clocks go forward.** In America/New_York, day 8 Mar 2026, Can't
+miss, deadline 04:00, created 7 Mar, no quiet hours: the final three hours from 01:00 give 01:00,
+01:30, 03:00 (the alarm; 02:00 and 02:30 don't exist and fold into 03:00 and 03:30), 03:30, then
+04:00, deadline passed.
