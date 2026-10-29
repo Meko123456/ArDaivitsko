@@ -3,6 +3,7 @@ package io.github.meko123456.ardaivitsko.data
 import io.github.meko123456.ardaivitsko.core.Occurrence
 import io.github.meko123456.ardaivitsko.core.OccurrenceState
 import io.github.meko123456.ardaivitsko.core.OccurrenceStatus
+import io.github.meko123456.ardaivitsko.core.OneNudgePerTask
 import io.github.meko123456.ardaivitsko.core.Task
 import kotlinx.coroutines.flow.Flow
 import java.time.Instant
@@ -21,7 +22,16 @@ data class OccurrenceItem(
     val occurrence: Occurrence get() = Occurrence.of(task, status)
     val day: LocalDate get() = status.day
     val state: OccurrenceState get() = status.state
-    val isDone: Boolean get() = status.state == OccurrenceState.DONE
+
+    /** Done or Skipped: it never nudges again. */
+    val isClosed: Boolean get() = status.state.isClosed
+
+    /**
+     * An earlier day of a task whose later day has come: listed, but quiet (no nudges, no alarm,
+     * no catch-up) while the latest day nudges. [latestDays] comes from [TaskStore.latestDays].
+     */
+    fun isQuiet(latestDays: Map<Long, LocalDate>): Boolean =
+        !isClosed && OneNudgePerTask.isQuiet(originalDay, latestDays[task.id])
 }
 
 /** A task with how far its occurrences have been written out, for the calendar's later days. */
@@ -33,7 +43,7 @@ data class TaskSeries(val task: Task, val seriesFrom: LocalDate, val materialize
  */
 interface TaskStore {
 
-    /** Everything for Today: occurrences not done from [today] or before, and all of today's. */
+    /** Everything for Today: occurrences not done or skipped from [today] or before, and all of today's. */
     fun observeActive(today: LocalDate): Flow<List<OccurrenceItem>>
 
     /** Occurrences that belong to a day from [from] to [to], for the calendar. */
@@ -47,8 +57,13 @@ interface TaskStore {
 
     suspend fun task(id: Long): Task?
 
-    /** Every occurrence that isn't done, for scheduling. */
+    /** Every occurrence that isn't done or skipped, for scheduling. */
     suspend fun undone(): List<OccurrenceItem>
+
+    /** Each task's latest day so far, on or before [today]: only that day nudges (one nudge per task). */
+    suspend fun latestDays(today: LocalDate): Map<Long, LocalDate>
+
+    fun observeLatestDays(today: LocalDate): Flow<Map<Long, LocalDate>>
 
     /**
      * Saves a new task and writes out its occurrences through [through]. [today] starts its series:

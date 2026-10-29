@@ -156,7 +156,7 @@ class NudgeServiceTest {
     }
 
     @Test
-    fun `a daily task gets tomorrow's occurrence a day ahead and both nudge`() = runTest {
+    fun `a daily task gets tomorrow's occurrence a day ahead, and only its latest day nudges`() = runTest {
         val h = Harness(at("2026-10-29 09:00"))
         h.add(task(title = "Vitamins", repeat = Repeat.DAILY))
 
@@ -164,8 +164,9 @@ class NudgeServiceTest {
 
         h.advanceTo("2026-10-30 10:00")
 
+        // One nudge per task: the 29th, unanswered, is listed but quiet; the 30th nudges.
         val kinds = h.store.undone().filter { it.day <= day("2026-10-30") }.associate { it.day to h.notifier.showing[it.id] }
-        assertEquals(mapOf(day("2026-10-29") to NudgeKind.OVERDUE, day("2026-10-30") to NudgeKind.REGULAR), kinds)
+        assertEquals(mapOf(day("2026-10-29") to null, day("2026-10-30") to NudgeKind.REGULAR), kinds)
         assertTrue(h.store.undone().any { it.day == day("2026-10-31") })
     }
 

@@ -78,6 +78,20 @@ class CalendarViewModelTest {
     }
 
     @Test
+    fun `a skipped day counts as answered for its mark`() = runTest {
+        val h = Harness(at("2026-10-26 09:00"))
+        h.service.addTask(task(title = "Water the plants", day = "2026-10-27", repeat = Repeat.DAILY))
+        h.advanceTo("2026-10-29 11:00")
+        h.service.answer(h.store.undone().single { it.originalDay == day("2026-10-27") }.id, Answer.Skip)
+
+        val vm = h.viewModel()
+        keepCollecting(vm.state)
+
+        assertEquals(Mark.ALL_DONE, vm.state.value.mark("2026-10-27"))
+        assertEquals(Mark.OPEN, vm.state.value.mark("2026-10-28"))
+    }
+
+    @Test
     fun `a moved task shows on its new day`() = runTest {
         val h = Harness(at("2026-10-29 11:00"))
         val id = h.add(task(title = "Renew the parking permit"))

@@ -56,3 +56,5 @@ data class OccurrenceWithTask(
     @Embedded val occurrence: OccurrenceEntity,
     @Relation(parentColumn = "taskId", entityColumn = "id") val task: TaskEntity,
 )
+
+data class LatestDay(val taskId: Long, val latestDay: LocalDate)

@@ -4,6 +4,7 @@ import io.github.meko123456.ardaivitsko.Harness
 import io.github.meko123456.ardaivitsko.MainDispatcherRule
 import io.github.meko123456.ardaivitsko.at
 import io.github.meko123456.ardaivitsko.core.OccurrenceState
+import io.github.meko123456.ardaivitsko.core.Repeat
 import io.github.meko123456.ardaivitsko.keepCollecting
 import io.github.meko123456.ardaivitsko.nudge.Answer
 import io.github.meko123456.ardaivitsko.record
@@ -12,6 +13,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class TodayViewModelTest {
 
@@ -74,6 +76,23 @@ class TodayViewModelTest {
 
         assertEquals("Moved from 28 Oct · Next nudge at 10:00", vm.state.value.today.single().statusLine)
         assertEquals(emptyList(), vm.state.value.overdue)
+    }
+
+    @Test
+    fun `earlier days of a repeating task are listed as overdue, but quiet, and a skipped one leaves`() = runTest {
+        val h = Harness(at("2026-10-26 09:00"))
+        h.service.addTask(task(title = "Water the plants", day = "2026-10-27", repeat = Repeat.DAILY))
+        h.advanceTo("2026-10-29 11:00")
+        val vm = h.viewModel()
+        keepCollecting(vm.state)
+
+        assertEquals(listOf("Overdue since 27 Oct", "Overdue since 28 Oct"), vm.state.value.overdue.map { it.dueLine })
+        assertTrue(vm.state.value.overdue.all { it.quiet && it.statusLine == "Open · Quiet while a later day nudges" })
+        assertEquals("Open · Next nudge at 13:00", vm.state.value.today.single().statusLine)
+
+        h.service.answer(vm.state.value.overdue.first().occurrenceId, Answer.Skip)
+
+        assertEquals(listOf("Overdue since 28 Oct"), vm.state.value.overdue.map { it.dueLine })
     }
 
     @Test

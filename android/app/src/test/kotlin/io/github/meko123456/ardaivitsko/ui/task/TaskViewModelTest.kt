@@ -5,6 +5,7 @@ import io.github.meko123456.ardaivitsko.Harness
 import io.github.meko123456.ardaivitsko.MainDispatcherRule
 import io.github.meko123456.ardaivitsko.at
 import io.github.meko123456.ardaivitsko.core.OccurrenceState
+import io.github.meko123456.ardaivitsko.core.Repeat
 import io.github.meko123456.ardaivitsko.day
 import io.github.meko123456.ardaivitsko.keepCollecting
 import io.github.meko123456.ardaivitsko.record
@@ -116,6 +117,41 @@ class TaskViewModelTest {
 
         assertFalse(vm.state.value.canSnooze)
         assertFalse(vm.state.value.canMoveToTomorrow)
+    }
+
+    @Test
+    fun `an earlier quiet day offers done and skip, and skip sets it aside`() = runTest {
+        val h = Harness(at("2026-10-26 09:00"))
+        h.service.addTask(task(title = "Water the plants", day = "2026-10-27", repeat = Repeat.DAILY))
+        h.advanceTo("2026-10-29 11:00")
+        val missed = h.store.undone().single { it.originalDay == day("2026-10-27") }.id
+        val vm = h.viewModel(missed)
+        keepCollecting(vm.state)
+
+        assertTrue(vm.state.value.quiet)
+        assertFalse(vm.state.value.canSnooze)
+        assertFalse(vm.state.value.canMoveToTomorrow)
+        assertEquals("No nudges: a later day of this task nudges instead", vm.state.value.nextNudge)
+
+        vm.skip()
+
+        assertEquals("Skipped", vm.state.value.status)
+        assertTrue(vm.state.value.done)
+        assertEquals(OccurrenceState.SKIPPED, h.store.occurrence(missed)?.state)
+    }
+
+    @Test
+    fun `the latest day of a repeating task isn't quiet`() = runTest {
+        val h = Harness(at("2026-10-26 09:00"))
+        h.service.addTask(task(title = "Water the plants", day = "2026-10-27", repeat = Repeat.DAILY))
+        h.advanceTo("2026-10-29 11:00")
+        val latest = h.store.undone().single { it.originalDay == day("2026-10-29") }.id
+        val vm = h.viewModel(latest)
+        keepCollecting(vm.state)
+
+        assertFalse(vm.state.value.quiet)
+        assertTrue(vm.state.value.canSnooze)
+        assertEquals("Next nudge at 13:00", vm.state.value.nextNudge)
     }
 
     @Test

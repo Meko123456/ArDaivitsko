@@ -50,11 +50,18 @@ interface TaskDao {
     @Query("UPDATE occurrences SET lastNudgedAt = :at WHERE id = :id")
     suspend fun setLastNudged(id: Long, at: Instant?)
 
-    @Query("UPDATE occurrences SET lastNudgedAt = :at WHERE state != 'DONE'")
+    @Query("UPDATE occurrences SET lastNudgedAt = :at WHERE state NOT IN ('DONE', 'SKIPPED')")
     suspend fun acknowledgeAll(at: Instant)
 
-    @Query("UPDATE occurrences SET lastNudgedAt = :at WHERE taskId = :taskId AND state != 'DONE'")
+    @Query("UPDATE occurrences SET lastNudgedAt = :at WHERE taskId = :taskId AND state NOT IN ('DONE', 'SKIPPED')")
     suspend fun acknowledgeTask(taskId: Long, at: Instant)
+
+    /** Each task's latest day so far: the latest day its series gave an occurrence, up to [today]. */
+    @Query("SELECT taskId, MAX(originalDay) AS latestDay FROM occurrences WHERE originalDay <= :today GROUP BY taskId")
+    suspend fun latestDays(today: LocalDate): List<LatestDay>
+
+    @Query("SELECT taskId, MAX(originalDay) AS latestDay FROM occurrences WHERE originalDay <= :today GROUP BY taskId")
+    fun observeLatestDays(today: LocalDate): Flow<List<LatestDay>>
 
     @Transaction
     @Query("SELECT * FROM occurrences WHERE id = :id")
@@ -65,11 +72,11 @@ interface TaskDao {
     fun observeOccurrence(id: Long): Flow<OccurrenceWithTask?>
 
     @Transaction
-    @Query("SELECT * FROM occurrences WHERE state != 'DONE' ORDER BY day, id")
+    @Query("SELECT * FROM occurrences WHERE state NOT IN ('DONE', 'SKIPPED') ORDER BY day, id")
     suspend fun undone(): List<OccurrenceWithTask>
 
     @Transaction
-    @Query("SELECT * FROM occurrences WHERE (state != 'DONE' AND day <= :today) OR day = :today ORDER BY day, id")
+    @Query("SELECT * FROM occurrences WHERE (state NOT IN ('DONE', 'SKIPPED') AND day <= :today) OR day = :today ORDER BY day, id")
     fun observeActive(today: LocalDate): Flow<List<OccurrenceWithTask>>
 
     @Transaction

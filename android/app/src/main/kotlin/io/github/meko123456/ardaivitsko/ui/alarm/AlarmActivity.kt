@@ -62,8 +62,8 @@ class AlarmActivity : ComponentActivity() {
                 val item by container.store.observeOccurrence(occurrenceId).collectAsStateWithLifecycle(initialValue = null)
                 // Answered elsewhere (the notification, the widget) or deleted: nothing left to ring for.
                 LaunchedEffect(occurrenceId) {
-                    val current = container.store.observeOccurrence(occurrenceId).first { it == null || it.isDone }
-                    if (current == null || current.isDone) finish()
+                    val current = container.store.observeOccurrence(occurrenceId).first { it == null || it.isClosed }
+                    if (current == null || current.isClosed) finish()
                 }
                 AlarmScreen(
                     item = item,

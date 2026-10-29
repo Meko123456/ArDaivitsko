@@ -42,8 +42,11 @@ data class TaskRow(
     /** "In progress · Next nudge at 16:00" */
     val statusLine: String,
     val overdue: Boolean,
+    /** An earlier day of a repeating task, listed but quiet while a later day nudges. */
+    val quiet: Boolean = false,
 ) {
-    val done: Boolean get() = state == OccurrenceState.DONE
+    /** Done or Skipped. */
+    val done: Boolean get() = state.isClosed
 }
 
 data class TodayState(
@@ -89,9 +92,11 @@ class TodayViewModel(
     val state: StateFlow<TodayState> = clock
         .map { it.atZone(time.zone()).toLocalDate() }
         .distinctUntilChanged()
-        .flatMapLatest { today -> store.observeActive(today).map { today to it } }
-        .combine(clock) { (today, items), now -> Triple(today, items, now) }
-        .combine(settings.settings) { (today, items, now), settings -> build(today, items, now, NudgePlanner(settings.nudgeSettings, time.zone())) }
+        .flatMapLatest { today ->
+            combine(store.observeActive(today), store.observeLatestDays(today)) { items, latest -> Day(today, items, latest) }
+        }
+        .combine(clock) { day, now -> day to now }
+        .combine(settings.settings) { (day, now), settings -> build(day, now, NudgePlanner(settings.nudgeSettings, time.zone())) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TodayState())
 
     /** On resume: the 12/24-hour setting or the zone may have changed while away. */
@@ -110,10 +115,18 @@ class TodayViewModel(
         viewModelScope.launch { service.answer(occurrenceId, Answer.Reopen) }
     }
 
-    private fun build(today: LocalDate, items: List<OccurrenceItem>, now: Instant, planner: NudgePlanner): TodayState {
+    private class Day(val today: LocalDate, val items: List<OccurrenceItem>, val latestDays: Map<Long, LocalDate>)
+
+    private fun build(day: Day, now: Instant, planner: NudgePlanner): TodayState {
+        val today = day.today
         val texts = formats.texts(time.zone())
-        val rows = items.map { item ->
-            val next = if (item.isDone) null else texts.nextNudge(planner.next(item.occurrence, now), now)
+        val rows = day.items.map { item ->
+            val quiet = item.isQuiet(day.latestDays)
+            val next = when {
+                item.isClosed -> null
+                quiet -> QUIET
+                else -> texts.nextNudge(planner.next(item.occurrence, now), now)
+            }
             TaskRow(
                 occurrenceId = item.id,
                 title = item.task.title,
@@ -121,7 +134,8 @@ class TodayViewModel(
                 state = item.state,
                 dueLine = texts.dueLine(item.day, item.task.deadline, today),
                 statusLine = listOfNotNull(statusLabel(item.status, formats), next).joinToString(" · "),
-                overdue = item.day < today && !item.isDone,
+                overdue = item.day < today && !item.isClosed,
+                quiet = quiet,
             ) to item
         }
         return TodayState(
@@ -136,5 +150,6 @@ class TodayViewModel(
 
     companion object {
         const val TICK_MILLIS = 30_000L
+        const val QUIET = "Quiet while a later day nudges"
     }
 }
