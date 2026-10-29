@@ -7,6 +7,7 @@ let package = Package(
     platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
         .library(name: "NudgeKit", targets: ["NudgeKit"]),
+        .library(name: "TaskStore", targets: ["TaskStore"]),
     ],
     targets: [
         // Tasks, occurrences and when they nudge, as plain values: no UI, no system frameworks
@@ -14,5 +15,10 @@ let package = Package(
         // and a calendar.
         .target(name: "NudgeKit"),
         .testTarget(name: "NudgeKitTests", dependencies: ["NudgeKit"]),
+
+        // The tasks and their occurrences in SwiftData, in the app group so the widget reads them,
+        // and the settings in the group's defaults.
+        .target(name: "TaskStore", dependencies: ["NudgeKit"]),
+        .testTarget(name: "TaskStoreTests", dependencies: ["TaskStore"]),
     ]
 )

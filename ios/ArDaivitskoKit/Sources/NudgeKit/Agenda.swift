@@ -57,7 +57,7 @@ public enum Agenda {
         for task in tasks {
             found += task.occurrences.filter { $0.day == day }
             let saved = Set(task.occurrences.map(\.seriesDay))
-            if task.spec.draft.repeats.occurs(on: day, first: task.spec.draft.day), !saved.contains(day) {
+            if task.spec.occurs(on: day), !saved.contains(day) {
                 found.append(task.upcoming(on: day))
             }
         }
@@ -70,9 +70,7 @@ public enum Agenda {
         for task in tasks {
             found += task.occurrences.filter { $0.isOverdue(today: today) }
             let saved = Set(task.occurrences.map(\.seriesDay))
-            let draft = task.spec.draft
-            for day in draft.repeats.days(first: draft.day, from: draft.day, through: today.adding(days: -1))
-            where !saved.contains(day) {
+            for day in task.spec.days(from: task.spec.draft.day, through: today.adding(days: -1)) where !saved.contains(day) {
                 found.append(task.upcoming(on: day))
             }
         }

@@ -54,11 +54,25 @@ public struct TaskSpec: Hashable, Sendable, Identifiable {
     public var draft: TaskDraft
     /// Nothing nudges before this moment.
     public var createdAt: Date
+    /// Its repeat makes occurrences from this day on: the first day, or the day the repeat last
+    /// changed, so an edit doesn't fill the past with occurrences nobody was asked about.
+    public var since: Day
 
-    public init(id: String, draft: TaskDraft, createdAt: Date) {
+    public init(id: String, draft: TaskDraft, createdAt: Date, since: Day? = nil) {
         self.id = id
         self.draft = draft
         self.createdAt = createdAt
+        self.since = max(since ?? draft.day, draft.day)
+    }
+
+    /// Whether its repeat makes an occurrence on `day`.
+    public func occurs(on day: Day) -> Bool {
+        day >= since && draft.repeats.occurs(on: day, first: draft.day)
+    }
+
+    /// The days its repeat makes occurrences on, from `from` through `through`.
+    public func days(from: Day, through: Day) -> [Day] {
+        draft.repeats.days(first: draft.day, from: max(from, since), through: through)
     }
 }
 

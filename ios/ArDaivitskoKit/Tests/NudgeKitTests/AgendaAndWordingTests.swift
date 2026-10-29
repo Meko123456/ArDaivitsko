@@ -45,6 +45,15 @@ struct AgendaTests {
         #expect(OccurrenceRef("3F2504E0-4F89-11D3-9A0C-0305E82C3301") == .saved("3F2504E0-4F89-11D3-9A0C-0305E82C3301"))
     }
 
+    @Test("A repeat changed by an edit makes no occurrences before the edit's day")
+    func since() {
+        var daily = task("Stretch", first: today.adding(days: -10), repeats: .daily)
+        daily.spec = TaskSpec(id: daily.spec.id, draft: daily.spec.draft, createdAt: daily.spec.createdAt, since: today.adding(days: -1))
+        #expect(Agenda.overdue(before: today, in: [daily]).map(\.day) == [today.adding(days: -1)])
+        #expect(Agenda.occurrences(on: today.adding(days: -2), in: [daily]).isEmpty)
+        #expect(daily.spec.occurs(on: today))
+    }
+
     @Test("A moved occurrence belongs to its new day, and its series day doesn't come back as new")
     func moved() {
         let permit = task("Permit", first: today, repeats: .daily, saved: [saved("Permit", on: today, state: .moved, movedTo: today.adding(days: 1))])
