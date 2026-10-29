@@ -105,6 +105,66 @@ final class SimulatorChecks: ArDaivitskoUITestCase {
         }
     }
 
+    /// The nudge as a banner over another app, and its four buttons, each answering a task
+    /// without opening Ar Daivitsko. Each task is seeded as snoozed so its nudge comes on time.
+    @MainActor
+    func testANudgesButtonsAnswerWithoutOpeningTheApp() throws {
+        var settings = NudgeSettings.standard
+        settings.quietHoursOn = false
+        let answers = [("Pay rent", "Done"), ("Call the bank", "In progress"), ("Renew the parking permit", "Not today"), ("Buy medicine", "Snooze 1 hour")]
+        let firstIn: TimeInterval = 50
+        let apart: TimeInterval = 55
+        let entries = answers.enumerated().map { index, answer in
+            // Snoozed an hour ago, give or take: its next nudge comes `firstIn + index * apart` from now.
+            Seed.Entry(title: answer.0, snoozedOffset: -3_600 + firstIn + Double(index) * apart)
+        }
+        XCUIDevice.shared.press(.home)
+        let app = try launch(with: entries, settings: settings)
+        XCTAssertTrue(row("Pay rent", in: app).waitForExistence(timeout: 30))
+        let settingsApp = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
+        settingsApp.launch()
+
+        for (index, (title, button)) in answers.enumerated() {
+            // The banner's label reads "AR DAIVITSKO, now, Pay rent, Due today by 23:59., TIME SENSITIVE".
+            let banner = springboard.descendants(matching: .any).matching(NSPredicate(format: "identifier == 'NotificationShortLookView' AND label CONTAINS %@", title)).firstMatch
+            guard banner.waitForExistence(timeout: apart + 60) else {
+                print("SPRINGBOARD TREE BEGIN\n\(springboard.debugDescription)\nSPRINGBOARD TREE END")
+                XCTFail("No banner for \(title)")
+                return
+            }
+            if index == 0 { save("banner") }
+            // Holding the banner opens it with its buttons.
+            banner.press(forDuration: 1.2)
+            let action = springboard.buttons[button]
+            XCTAssertTrue(action.waitForExistence(timeout: 10), "No \(button) on \(title)'s nudge")
+            if index == 0 { save("banner-buttons") }
+            action.tap()
+            if button == "Not today" {
+                // Says so, with Undo, which puts it back.
+                let moved = springboard.descendants(matching: .any).matching(NSPredicate(format: "identifier == 'NotificationShortLookView' AND label CONTAINS 'Moved to tomorrow'")).firstMatch
+                XCTAssertTrue(moved.waitForExistence(timeout: 20), "No confirmation that \(title) moved")
+                save("moved-with-undo")
+                moved.press(forDuration: 1.2)
+                let undo = springboard.buttons["Undo"]
+                XCTAssertTrue(undo.waitForExistence(timeout: 10), "No Undo on the confirmation")
+                undo.tap()
+            }
+            sleep(2)
+        }
+
+        app.activate()
+        waitForValue(of: row("Pay rent", in: app), containing: "Done")
+        waitForValue(of: row("Call the bank", in: app), containing: "In progress")
+        waitForValue(of: row("Buy medicine", in: app), containing: "Next nudge")
+        // Moved by Not today, then put back by Undo.
+        waitForValue(of: row("Renew the parking permit", in: app), containing: "Due by")
+        save("after-answers")
+        tapWhenHittable(app.buttons["Settings"])
+        let pending = app.staticTexts["pending.Pay rent"]
+        scroll(to: pending, in: app)
+        XCTAssertEqual(pending.label, "Pay rent: 0 pending")
+    }
+
     /// While the alarm sounds over the open app, Done in the app silences it.
     @MainActor
     func testAnsweringInTheAppStopsASoundingAlarm() throws {
