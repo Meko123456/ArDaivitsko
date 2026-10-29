@@ -51,13 +51,16 @@ class AppContainer(
     val abilities = PhoneAbilities(context)
     val service = NudgeService(store, settings, time, notifier, alarms, GlanceWidgetRefresher(context, appScope))
 
-    /** Runs [block] for a receiver after onReceive returns, and lets the system know when it's done. */
-    fun runAsync(pending: BroadcastReceiver.PendingResult, block: suspend () -> Unit) {
+    /**
+     * Runs [block] for a receiver after onReceive returns, and lets the system know when it's done.
+     * [pending] is null when a receiver is called directly rather than by a broadcast (tests).
+     */
+    fun runAsync(pending: BroadcastReceiver.PendingResult?, block: suspend () -> Unit) {
         appScope.launch {
             try {
                 withTimeoutOrNull(RECEIVER_BUDGET_MILLIS) { block() }
             } finally {
-                pending.finish()
+                pending?.finish()
             }
         }
     }
