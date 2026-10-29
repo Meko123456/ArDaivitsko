@@ -19,7 +19,7 @@ The app runs on iOS 17 and later.
 cd ios
 xcodegen generate                     # writes ArDaivitsko.xcodeproj from project.yml (not committed)
 open ArDaivitsko.xcodeproj            # run the ArDaivitsko scheme on a simulator or a phone
-(cd ArDaivitskoKit && swift test)     # the shared package's tests, on the Mac (121 tests)
+(cd ArDaivitskoKit && swift test)     # the shared package's tests, on the Mac (135 tests)
 swift tools/render-icon.swift         # redraws the app icons
 ```
 
@@ -59,8 +59,9 @@ graph TD
 
 - **NudgeKit: when a task nudges, as a pure function.** `NudgePlanner.nudges(for:from:through:)`
   takes an occurrence (its task's rule, its state, and the moments that anchor its cadence:
-  created, marked In progress, snoozed, moved), the quiet hours and a calendar, and returns every
-  nudge with its kind: regular, overdue, heads-up, final, alarm, deadline passed. A `Day` is a
+  created, marked In progress, snoozed, moved, and for a repeating task the next day its series
+  gives, when it goes quiet), the quiet hours and a calendar, and returns every nudge with its
+  kind: regular, overdue, heads-up, final, alarm, deadline passed. A `Day` is a
   calendar day with no time zone, a `TimeOfDay` a wall-clock time, and they become moments only
   with the phone's calendar: a skipped 02:30 becomes 03:30, a repeated 01:30 is the first, and
   cadences step on the wall clock. The module also holds repeats (monthly from the 31st clamps
@@ -117,10 +118,10 @@ closed, so it answers like any other answer: saved, notifications withdrawn, ala
 occurrence is passed as a string id; an enum parameter arrived garbled from an ad-hoc signed
 widget in Khinkali.
 
-## Choices beyond docs/behaviour.md
+## Choices agreed while building
 
-Agreed with Merab while building, and being added to docs/behaviour.md; each has a test in
-`PlannerEdgeTests` or `WorkedExampleTests`:
+Settled with Merab where the first spec was silent, and now in docs/behaviour.md; each has a test
+in `PlannerEdgeTests`, `WorkedExampleTests` or `OneNudgePerTaskTests`:
 
 - Quiet hours never silence the Can't-miss extras (heads-up, final hours, alarm, Deadline passed).
 - A snooze inside the final three hours skips the half-hour slots until tap + 1 h; the alarm and
@@ -131,29 +132,42 @@ Agreed with Merab while building, and being added to docs/behaviour.md; each has
   "Three hours before" and "the last hour" are wall-clock too, and skipped slots fold forward.
 - A task's deadline only shows in the text unless it's Can't miss; regular nudges carry on after
   it until the day ends. Not today keeps the deadline's time.
-- A daily task's unanswered yesterday and its today both nudge, grouped in one thread.
+- **One nudge per task.** A repeating task nudges only for its latest day so far: today's, or
+  the most recent before today when today isn't one of its days. Days are counted by the day the
+  repeat gave them, not a day Not today moved them to. Its earlier days still Open or In progress
+  stay under Overdue, quietly ("Quiet while a later day nudges"): no notifications, no AlarmKit
+  alarms, no catch-up, and nothing of theirs in the 64-request window. They offer Done and
+  **Skip**, which makes them **Skipped**: quiet, gone from Today and the widget, answered for the
+  calendar's mark, and reopened by "Not Skipped After All". Tomorrow's heads-up still comes.
+  When the app next runs on a new day, yesterday's shown nudges, and all of a quiet day's, leave
+  Notification Center (examples 12 and 13).
 - Catch-up is one per occurrence. In progress tapped again restarts from the new tap. Not today on
   an overdue task moves it to tomorrow counted from today, and ends In progress.
 - A snooze tapped late at night nudges once after midnight; the new day keeps its own grid.
 - Two nudges of one task at one moment keep the strongest.
 - A repeating task whose first day had passed when it was created gets that day, overdue, then
-  the days from its creation on. Editing a day or repeat re-plans from today; answered days stay.
+  the days from its creation on. Editing a repeating task's day or repeat re-plans from today;
+  answered days stay. Editing a one-off task's day moves its one occurrence and keeps its state
+  (Done stays Done, In progress keeps its start); one that Not today had moved becomes Open.
 - Snooze and Not today are offered in the app only for a task due today or overdue.
 
 ## Tests
 
-- **Package (Swift Testing, 121, on the Mac):** every worked example in docs/behaviour.md
-  (1 to 7) and the four agreed since (8 to 11), exactly. Daylight saving in New York both ways.
+- **Package (Swift Testing, 135, on the Mac):** every worked example in docs/behaviour.md
+  (1 to 13), exactly. Daylight saving in New York both ways.
   Quiet hours across and inside a day. Intervals of 1, 2 and 4 hours. Snoozes in and around the
   final window. In progress on a Can't-miss task. Tasks created after their deadline. Repeats
-  (monthly clamping, leap years, weekly). The 64-request window and catch-ups. The SwiftData store
+  (monthly clamping, leap years, weekly). One nudge per task: a week of missed days, a weekly
+  task, In progress on an older day, the latest day Done, Not today on daily and monthly tasks,
+  Skip. The 64-request window and catch-ups. The SwiftData store
   on an in-memory container, and on a file a second container reads, as the widget does. The
   notification categories, requests and scheduler against an in-memory center. The Nudger end to
   end: Done from a notification leaves nothing pending or shown for that task.
-- **UI tests (XCUITest, 8):** add a task and a Can't-miss one; Done from the row and back; Done
+- **UI tests (XCUITest, 9):** add a task and a Can't-miss one; Done from the row and back; Done
   leaves no notifications pending for that task (Debug builds show the count in Settings); In
   progress; Not today with Undo, and the task found on tomorrow in the calendar; a Can't-miss
-  task's last day asks before moving; overdue comes first. Each test seeds its tasks
+  task's last day asks before moving; overdue comes first; a daily task's missed days are quiet,
+  offer only Done and Skip, and Skip takes one off Today. Each test seeds its tasks
   (ARDAIVITSKO_SEED, Debug builds only), answers the permission prompts, and launches the app
   once before the class.
 - **Simulator checks (6, opt-in):** the four buttons on a banner, the widget's Done, a tapped
@@ -180,6 +194,8 @@ On an iPhone 17 simulator with iOS 26.5:
   Answering the task in the app stopped it.
 - **A catch-up on launch**, after a seeded gap in the window, and **12-hour times** with the
   phone set to 12-hour (11:59 PM in the app and in the notification).
+- **A daily task left for three days**: its missed days listed under Overdue, quietly, and only
+  today's day nudging.
 - **Screens in light, dark and the largest text size (AX5).** This found the calendar's
   missing first week (colliding ids), now fixed. At AX5 the rows now stack, menus become
   lists, and the month grid stops growing while the day's list keeps full size.
@@ -200,8 +216,10 @@ Not checked, or not working, in the simulator:
 
 ## Known gaps
 
-- Every unanswered day of a daily task nudges, as the spec says: a week ignored is a week of
-  overdue occurrences nudging together, grouped in one thread. There's no "done for all" yet.
+- A week of missed days is a week of rows to mark Done or Skip, one at a time: there's no
+  "skip all" yet. On the small widget the quiet days come after the tasks that nudge.
+- Yesterday's shown nudges leave Notification Center when the app next runs (opened, answered,
+  or a background refresh), not at midnight itself, which iOS doesn't wake the app for.
 - No "Move to…" a chosen day; Not today moves to tomorrow, and the editor changes a task's day.
 - English only.
 
