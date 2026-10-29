@@ -297,18 +297,82 @@ class NudgePlannerTest {
         )
     }
 
+    private fun NudgePlanner.finalHours(task: Task) =
+        planOf(task).filter { it.kind == NudgeKind.FINAL || it.kind == NudgeKind.ALARM || it.kind == NudgeKind.DEADLINE_PASSED }
+
     @Test
-    fun `in spring the final hours count real time across the gap`() {
+    fun `in spring the final hours are on the wall clock and the skipped slots fold into the next ones`() {
+        val newYork = NudgePlanner(NudgeSettings(quietHours = null), NEW_YORK)
+        val spring = task(day = "2026-03-08", createdAt = "2026-03-06 12:00", deadline = "04:00", cantMiss = true, zone = NEW_YORK)
+
+        // 01:00 is three wall-clock hours before 04:00; 02:00 and 02:30 don't exist and become 03:00 and 03:30.
+        assertEquals(
+            listOf("8 Mar 01:00 final", "8 Mar 01:30 final", "8 Mar 03:00 alarm", "8 Mar 03:30 final", "8 Mar 04:00 deadline-passed"),
+            newYork.finalHours(spring).lines(NEW_YORK),
+        )
+    }
+
+    @Test
+    fun `11 a deadline just after the spring gap has its alarm on the last slot before it`() {
         val newYork = NudgePlanner(NudgeSettings(quietHours = null), NEW_YORK)
         val spring = task(day = "2026-03-08", createdAt = "2026-03-06 12:00", deadline = "03:00", cantMiss = true, zone = NEW_YORK)
 
-        val finals = newYork.planOf(spring).filter { it.kind == NudgeKind.FINAL || it.kind == NudgeKind.ALARM || it.kind == NudgeKind.DEADLINE_PASSED }
-
-        // 03:00 EDT is 07:00 UTC; three real hours before it is 23:00 EST.
+        // The last hour, 02:00 to 03:00, doesn't exist; 02:00 and 02:30 would land on or after the deadline.
         assertEquals(
-            listOf("7 Mar 23:00 final", "7 Mar 23:30 final", "8 Mar 00:00 final", "8 Mar 00:30 final", "8 Mar 01:00 alarm", "8 Mar 01:30 final", "8 Mar 03:00 deadline-passed"),
+            listOf("8 Mar 00:00 final", "8 Mar 00:30 final", "8 Mar 01:00 final", "8 Mar 01:30 alarm", "8 Mar 03:00 deadline-passed"),
+            newYork.finalHours(spring).lines(NEW_YORK),
+        )
+    }
+
+    @Test
+    fun `in autumn the final hours and the last hour start at the first of a repeated time`() {
+        val newYork = NudgePlanner(NudgeSettings(quietHours = null), NEW_YORK)
+        val autumn = task(day = "2026-11-01", createdAt = "2026-10-30 12:00", deadline = "02:30", cantMiss = true, zone = NEW_YORK)
+
+        val finals = newYork.finalHours(autumn)
+
+        assertEquals(
+            listOf(
+                "31 Oct 23:30 final", "1 Nov 00:00 final", "1 Nov 00:30 final", "1 Nov 01:00 final",
+                "1 Nov 01:30 alarm", "1 Nov 02:00 final", "1 Nov 02:30 deadline-passed",
+            ),
             finals.lines(NEW_YORK),
         )
+        // The alarm is the first 01:30 (EDT), two real hours before 02:30 EST.
+        assertEquals(java.time.Instant.parse("2026-11-01T05:30:00Z"), finals.single { it.kind == NudgeKind.ALARM }.at)
+    }
+
+    // A snooze late at night
+
+    @Test
+    fun `a snooze late at night nudges after midnight and the new day keeps its grid`() {
+        val noQuiet = NudgePlanner(NudgeSettings(quietHours = null), TBILISI)
+        val snoozed = Answers.snooze(OccurrenceStatus(day = day("2026-10-29")), at("2026-10-29 23:30"))
+
+        val nudges = noQuiet.planOf(task(), snoozed, through = "2026-10-30").filter { it.at > at("2026-10-29 23:30") }
+
+        assertEquals(
+            listOf("30 Oct 00:30 overdue") + regularDay("30 Oct", "overdue", "10:00", "13:00", "16:00", "19:00", "22:00"),
+            nudges.lines(),
+        )
+    }
+
+    @Test
+    fun `quiet hours silence a snooze's nudge after midnight`() {
+        val snoozed = Answers.snooze(OccurrenceStatus(day = day("2026-10-29")), at("2026-10-29 23:30"))
+
+        assertEquals(
+            "30 Oct 10:00 overdue",
+            planner.next(Occurrence.of(task(), snoozed), after = at("2026-10-29 23:30"))?.line(),
+        )
+    }
+
+    @Test
+    fun `next finds a late snooze's nudge after midnight`() {
+        val noQuiet = NudgePlanner(NudgeSettings(quietHours = null), TBILISI)
+        val snoozed = Answers.snooze(OccurrenceStatus(day = day("2026-10-29")), at("2026-10-29 23:30"))
+
+        assertEquals("30 Oct 00:30 overdue", noQuiet.next(Occurrence.of(task(), snoozed), after = at("2026-10-30 00:10"))?.line())
     }
 
     @Test

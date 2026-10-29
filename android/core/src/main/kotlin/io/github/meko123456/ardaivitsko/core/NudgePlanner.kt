@@ -1,6 +1,5 @@
 package io.github.meko123456.ardaivitsko.core
 
-import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -52,21 +51,23 @@ data class NudgeSettings(val quietHours: QuietHours? = QuietHours.DEFAULT)
  * Works out when an occurrence nudges, as a pure function of the occurrence, the settings and the
  * time zone (docs/behaviour.md, "Nudges").
  *
- * All times are wall-clock times in [zone]: a grid time that doesn't exist (the hour skipped in
- * spring) moves forward by the gap, and one that happens twice (autumn) is the first, which is
- * what [ZonedDateTime.of] does. The cadence after In progress or Snooze is counted on the wall
- * clock too.
+ * All times are wall-clock times in [zone]: a time that doesn't exist (the hour skipped in spring)
+ * moves forward by the gap, and one that happens twice (autumn) is the first, which is what
+ * [ZonedDateTime.of] does. The cadences after In progress and Snooze, the three hours before the
+ * deadline and its last hour are all counted on the wall clock too.
  *
  * - On its day, an open occurrence nudges at the start time and every interval after, outside
  *   quiet hours and not before the task was created. In progress doubles the interval from the
  *   moment it's marked; Snooze moves the next nudge to an hour after the tap, and the cadence
- *   carries on from there. Both reach to the end of the day they were tapped.
+ *   carries on from there. Both reach to the end of the day they were tapped, except that a
+ *   snooze's own nudge may fall after midnight; the new day keeps its grid either way.
  * - After its day it's overdue: every day, the grid from the start time again (twice the interval
  *   while In progress).
  * - Can't miss adds a heads-up at 19:00 the evening before, a nudge on every :00 and :30 of the
- *   last three hours (replacing the others there, quiet hours or not), the alarm (the first of
- *   those within the last hour) and "Deadline passed" at the deadline. Quiet hours never silence
- *   these. A snooze holds the final slots back for an hour, except the alarm.
+ *   last three hours (replacing the others there), the alarm (the first of those within the last
+ *   hour that's after the task was created) and "Deadline passed" at the deadline. Quiet hours
+ *   never silence these. A snooze holds the final slots back for its hour, but never the alarm,
+ *   and its own nudge in the final hours is a final one.
  */
 class NudgePlanner(private val settings: NudgeSettings, private val zone: ZoneId) {
 
@@ -108,7 +109,6 @@ class NudgePlanner(private val settings: NudgeSettings, private val zone: ZoneId
 
     /** The regular (or overdue) nudges of one local date: the grid, then the cadence after each tap. */
     private fun dayNudges(occurrence: Occurrence, date: LocalDate, window: FinalWindow?, out: MutableList<Nudge>) {
-        val kind = if (date == occurrence.day) NudgeKind.REGULAR else NudgeKind.OVERDUE
         val interval = occurrence.intervalHours.toLong()
         val inProgress = occurrence.state == OccurrenceState.IN_PROGRESS
         val markedAt = if (inProgress) occurrence.inProgressSince else null
@@ -122,17 +122,17 @@ class NudgePlanner(private val settings: NudgeSettings, private val zone: ZoneId
             if (snoozedAt != null && snoozedAt.localDate() == date) add(Anchor(snoozedAt, snooze = true))
         }.sortedBy { it.at }
 
-        fun offer(at: Instant) {
+        fun offer(time: LocalDateTime) {
+            val at = time.atZone(zone).toInstant()
             if (window != null && window.covers(at)) return // the final three hours replace these
             if (isQuiet(at)) return
-            out += Nudge(at, kind)
+            out += Nudge(at, if (time.toLocalDate() == occurrence.day) NudgeKind.REGULAR else NudgeKind.OVERDUE)
         }
 
         val firstAnchor = anchors.firstOrNull()?.at
         var time: LocalDateTime = date.atTime(occurrence.startTime)
         while (time.toLocalDate() == date) {
-            val at = time.atZone(zone).toInstant()
-            if (firstAnchor == null || at < firstAnchor) offer(at)
+            if (firstAnchor == null || time.atZone(zone).toInstant() < firstAnchor) offer(time)
             time = time.plusHours(gridStep)
         }
 
@@ -145,10 +145,14 @@ class NudgePlanner(private val settings: NudgeSettings, private val zone: ZoneId
                 else -> interval
             }
             var next = wallClock(anchor.at).plusHours(if (anchor.snooze) 1 else step)
+            if (anchor.snooze && next.toLocalDate() != date) {
+                // Snoozed late at night: its one nudge comes after midnight, and the new day keeps its grid.
+                if (until == null || next.atZone(zone).toInstant() < until) offer(next)
+                return@forEachIndexed
+            }
             while (next.toLocalDate() == date) {
-                val at = next.atZone(zone).toInstant()
-                if (until != null && at >= until) break
-                offer(at)
+                if (until != null && next.atZone(zone).toInstant() >= until) break
+                offer(next)
                 next = next.plusHours(step)
             }
         }
@@ -158,8 +162,11 @@ class NudgePlanner(private val settings: NudgeSettings, private val zone: ZoneId
     private fun cantMissNudges(occurrence: Occurrence, window: FinalWindow, out: MutableList<Nudge>) {
         out += Nudge(ZonedDateTime.of(occurrence.day.minusDays(1), HEADS_UP_TIME, zone).toInstant(), NudgeKind.HEADS_UP)
 
-        val slots = finalSlots(window)
-        val alarm = slots.firstOrNull { it >= window.lastHour && it >= occurrence.createdAt }
+        val slots = window.slots.filter { it >= occurrence.createdAt }
+        // The last hour always holds a :00 or :30 slot, except right after the spring change (a
+        // 03:00 deadline in New York on its night): then the alarm is the last slot before it.
+        val alarm = slots.firstOrNull { it >= window.lastHour }
+            ?: slots.lastOrNull()?.takeIf { window.slots.none { it >= window.lastHour } }
 
         // A snooze holds the final slots back until an hour after the tap, then nudges once, and the
         // slots carry on. A later In progress tap ends it there. The alarm is never held back.
@@ -181,18 +188,6 @@ class NudgePlanner(private val settings: NudgeSettings, private val zone: ZoneId
         out += Nudge(window.deadline, NudgeKind.DEADLINE_PASSED)
     }
 
-    /** Every :00 and :30, local time, from three hours before the deadline up to (not at) it. */
-    private fun finalSlots(window: FinalWindow): List<Instant> {
-        val slots = ArrayList<Instant>()
-        var time = window.start.atZone(zone).truncatedTo(ChronoUnit.HOURS)
-        while (time.toInstant() < window.deadline) {
-            val at = time.toInstant()
-            if (at >= window.start && time.minute % 30 == 0) slots += at
-            time = time.plusMinutes(30)
-        }
-        return slots
-    }
-
     private fun isQuiet(at: Instant): Boolean {
         val quietHours = settings.quietHours ?: return false
         return at.atZone(zone).toLocalTime() in quietHours
@@ -202,10 +197,29 @@ class NudgePlanner(private val settings: NudgeSettings, private val zone: ZoneId
 
     private fun wallClock(at: Instant): LocalDateTime = LocalDateTime.ofInstant(at, zone)
 
+    private fun LocalDateTime.instant(): Instant = atZone(zone).toInstant()
+
+    /** The last three hours before a Can't-miss deadline, on the wall clock. */
     private inner class FinalWindow(occurrence: Occurrence) {
-        val deadline: Instant = ZonedDateTime.of(occurrence.day, occurrence.deadline, zone).toInstant()
-        val start: Instant = deadline.minus(Duration.ofHours(3))
-        val lastHour: Instant = deadline.minus(Duration.ofHours(1))
+        private val deadlineTime = LocalDateTime.of(occurrence.day, occurrence.deadline)
+        val deadline: Instant = deadlineTime.instant()
+        val start: Instant = deadlineTime.minusHours(3).instant()
+        val lastHour: Instant = deadlineTime.minusHours(1).instant()
+
+        /**
+         * Every :00 and :30 from three hours before the deadline up to (not at) it. A slot in the
+         * spring gap moves forward and joins the next one; one the gap pushes to or past the
+         * deadline is dropped.
+         */
+        val slots: List<Instant> = buildList {
+            var time = deadlineTime.minusHours(3).upToHalfHour()
+            while (time < deadlineTime) {
+                val at = time.instant()
+                if (at < deadline) add(at)
+                time = time.plusMinutes(30)
+            }
+        }.distinct().sorted()
+
         fun covers(at: Instant) = at >= start && at < deadline
     }
 
@@ -218,5 +232,11 @@ class NudgePlanner(private val settings: NudgeSettings, private val zone: ZoneId
     companion object {
         val HEADS_UP_TIME: LocalTime = LocalTime.of(19, 0)
         private const val LOOKAHEAD_DAYS = 8L
+
+        /** The same time if it's on a :00 or :30, otherwise the next one. */
+        private fun LocalDateTime.upToHalfHour(): LocalDateTime {
+            val down = truncatedTo(ChronoUnit.HOURS).plusMinutes(if (minute >= 30) 30L else 0L)
+            return if (down == this) this else down.plusMinutes(30)
+        }
     }
 }
