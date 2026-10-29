@@ -58,14 +58,21 @@ struct TaskDetailView: View {
                 }
             }
 
-            Section("Answer") {
+            Section {
                 AnswerButtons(occurrence: occurrence, today: today)
+            } header: {
+                Text("Answer")
+            } footer: {
+                if occurrence.isQuiet(today: today) {
+                    Text("A later day of this task is the one that nudges. This one stays here, quietly, until you mark it Done or skip it.")
+                }
             }
 
             Section("Coming up") {
                 let upcoming = Array(nudger.planner.nudges(for: occurrence, from: now, through: now.addingTimeInterval(2 * 86_400)).filter { $0.date > now }.prefix(8))
                 if upcoming.isEmpty {
-                    Text(occurrence.state == .done ? "No more nudges: it's done." : "No nudges in the next two days.")
+                    Text(occurrence.isAnswered ? "No more nudges: it's \(occurrence.state == .done ? "done" : "skipped")."
+                        : occurrence.isQuiet(today: today) ? nudger.wording.quietNote : "No nudges in the next two days.")
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(upcoming, id: \.date) { nudge in

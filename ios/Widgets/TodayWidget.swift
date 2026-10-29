@@ -41,9 +41,12 @@ struct TodayTimeline: TimelineProvider {
         ]
     }
 
+    /// Overdue first, then today's; a repeating task's quiet earlier days come last, so the ones
+    /// that nudge stay in sight on a small widget.
     static func unanswered(on day: Day, in snapshots: [TaskSnapshot]) -> [Occurrence] {
         let list = Agenda.today(day, in: snapshots)
-        return list.overdue + list.today.filter { !$0.isAnswered }
+        let all = list.overdue + list.today.filter { !$0.isAnswered }
+        return all.filter { !$0.isQuiet(today: day) } + all.filter { $0.isQuiet(today: day) }
     }
 
     static func day(of date: Date) -> Day {

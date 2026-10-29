@@ -89,7 +89,7 @@ struct OccurrenceRow: View {
     let today: Day
     let now: Date
 
-    private var isDone: Bool { occurrence.state == .done }
+    private var isDone: Bool { occurrence.isAnswered }
 
     var body: some View {
         let status = statusLine
@@ -120,7 +120,7 @@ struct OccurrenceRow: View {
                             if typeSize.isAccessibilitySize {
                                 Text(next)
                             } else {
-                                Label(next, systemImage: "bell")
+                                Label(next, systemImage: occurrence.isQuiet(today: today) ? "bell.slash" : "bell")
                             }
                         }
                         .font(.subheadline)
@@ -133,7 +133,7 @@ struct OccurrenceRow: View {
         }
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             if isDone {
-                Button("Not Done") { Task { await nudger.reopen(ref: occurrence.id) } }
+                Button(occurrence.state == .skipped ? "Not Skipped" : "Not Done") { Task { await nudger.reopen(ref: occurrence.id) } }
                     .tint(.gray)
             } else {
                 Button("Done") { answer(.done) }
@@ -141,13 +141,18 @@ struct OccurrenceRow: View {
             }
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            if occurrence.canMoveToTomorrow(today: today) {
-                Button("Not Today") { answer(.notToday) }
-                    .tint(.orange)
-            }
-            if !isDone {
-                Button("In Progress") { answer(.inProgress) }
-                    .tint(.blue)
+            if occurrence.isQuiet(today: today) {
+                Button("Skip") { answer(.skip) }
+                    .tint(.gray)
+            } else {
+                if occurrence.canMoveToTomorrow(today: today) {
+                    Button("Not Today") { answer(.notToday) }
+                        .tint(.orange)
+                }
+                if !occurrence.isAnswered {
+                    Button("In Progress") { answer(.inProgress) }
+                        .tint(.blue)
+                }
             }
         }
         .contextMenu {
@@ -165,14 +170,15 @@ struct OccurrenceRow: View {
         if occurrence.isOverdue(today: today) {
             return occurrence.state == .inProgress ? "\(wording.overdueSince(occurrence)) · In progress" : wording.overdueSince(occurrence)
         }
-        if isDone { return "Done" }
+        if occurrence.isAnswered { return wording.state(of: occurrence) }
         let due = "due by \(wording.time(occurrence.rule.deadline))"
         let state = wording.state(of: occurrence)
         return occurrence.state == .open ? "Due by \(wording.time(occurrence.rule.deadline))" : "\(state) · \(due)"
     }
 
     private var nextLine: String? {
-        guard !isDone, let next = nudger.planner.nextNudge(for: occurrence, after: now) else { return nil }
+        if occurrence.isQuiet(today: today) { return nudger.wording.quietNote }
+        guard !occurrence.isAnswered, let next = nudger.planner.nextNudge(for: occurrence, after: now) else { return nil }
         return nudger.wording.next(next, today: today)
     }
 }
@@ -184,23 +190,27 @@ struct DoneButton: View {
 
     var body: some View {
         let done = occurrence.state == .done
+        let skipped = occurrence.state == .skipped
         Button {
             Task {
-                if done {
+                if done || skipped {
                     await nudger.reopen(ref: occurrence.id)
                 } else {
                     await nudger.answer(.done, ref: occurrence.id)
                 }
             }
         } label: {
-            Image(systemName: done ? "checkmark.circle.fill" : "circle")
+            Image(systemName: done ? "checkmark.circle.fill" : (skipped ? "minus.circle.fill" : "circle"))
                 .font(.title2)
                 .foregroundStyle(done ? Color.green : Color.secondary)
                 .frame(minWidth: 28, minHeight: 28)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
-        .accessibilityLabel(done ? "Mark \(occurrence.title) not done" : "Mark \(occurrence.title) done")
+        .accessibilityLabel(
+            done ? "Mark \(occurrence.title) not done"
+                : skipped ? "Mark \(occurrence.title) not skipped" : "Mark \(occurrence.title) done"
+        )
     }
 }
 
@@ -211,11 +221,23 @@ struct AnswerButtons: View {
     let today: Day
 
     var body: some View {
-        if occurrence.state == .done {
+        if occurrence.isAnswered {
             Button {
                 Task { await nudger.reopen(ref: occurrence.id) }
             } label: {
-                Label("Not Done After All", systemImage: "arrow.uturn.backward")
+                Label(occurrence.state == .skipped ? "Not Skipped After All" : "Not Done After All", systemImage: "arrow.uturn.backward")
+            }
+        } else if occurrence.isQuiet(today: today) {
+            // A later day of this task is the one that nudges: this one can only be finished or set aside.
+            Button {
+                answer(.done)
+            } label: {
+                Label("Done", systemImage: "checkmark.circle")
+            }
+            Button {
+                answer(.skip)
+            } label: {
+                Label("Skip", systemImage: "forward.end")
             }
         } else {
             Button {

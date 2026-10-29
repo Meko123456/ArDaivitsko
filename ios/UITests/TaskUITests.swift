@@ -131,6 +131,34 @@ final class TaskUITests: ArDaivitskoUITestCase {
     }
 
     @MainActor
+    func testMissedDaysOfADailyTaskAreQuietAndCanBeSkipped() throws {
+        let app = try launch(with: [
+            Seed.Entry(title: "Water the plants", dayOffset: -3, repeats: .daily, createdOffset: -4 * 86_400),
+        ], settings: noQuietHours)
+        // Three missed days are listed, quietly; only today's nudges.
+        let quiet = app.buttons.matching(NSPredicate(format: "label == 'Water the plants' AND value CONTAINS 'Quiet while a later day nudges'"))
+        XCTAssertTrue(quiet.firstMatch.waitForExistence(timeout: 30))
+        XCTAssertEqual(quiet.count, 3)
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label == 'Water the plants' AND value CONTAINS 'Next nudge'")).count, 1)
+
+        // Opened, a quiet day offers only Done and Skip.
+        tapWhenHittable(quiet.firstMatch)
+        let skip = app.buttons["Skip"]
+        XCTAssertTrue(skip.waitForExistence(timeout: 30))
+        XCTAssertTrue(app.buttons["Done"].exists)
+        XCTAssertFalse(app.buttons["Not Today"].exists)
+        XCTAssertFalse(app.buttons["In Progress"].exists)
+        XCTAssertFalse(app.buttons["Snooze 1 Hour"].exists)
+        skip.tap()
+        XCTAssertTrue(app.buttons["Not Skipped After All"].waitForExistence(timeout: 30))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        // Skipped, it leaves Today.
+        let two = expectation(for: NSPredicate(format: "count == 2"), evaluatedWith: quiet)
+        XCTAssertEqual(XCTWaiter().wait(for: [two], timeout: 30), .completed, "\(quiet.count) quiet days listed")
+    }
+
+    @MainActor
     func testOverdueComesFirst() throws {
         let app = try launch(with: [
             Seed.Entry(title: "Today's task", dayOffset: 0),
