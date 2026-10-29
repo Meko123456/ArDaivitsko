@@ -1,0 +1,8 @@
+# Keep the CI actions current (checkout, setup-java, gradle/actions…). The Android dependencies
+# follow the fleet's shared toolchain and move with its sweeps, so only Actions is tracked here.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
