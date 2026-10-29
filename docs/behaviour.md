@@ -34,7 +34,9 @@ forward by the gap (02:30 becomes 03:30); a time that happens twice (in autumn) 
 In progress and Snooze cadences follow the wall clock too: six hours from 13:05 is 19:05 on the
 clock, and an hour after 01:30 EDT on the night the clocks go back is 02:30 EST. So do "the final
 three hours" and "the last hour" before a deadline; slots that don't exist that night fold
-forward into the ones that do.
+forward into the ones that do, and a slot pushed to or past the deadline is dropped. If that
+leaves the last hour with no slot, the alarm is the last final slot before the deadline, so a
+Can't-miss task always has one.
 
 **Regular nudges.** On the occurrence's day, while it's Open, nudges come at the start time and
 then every interval: with 10:00 and 3 hours, at 10:00, 13:00, 16:00, 19:00 and 22:00. None come
@@ -168,3 +170,8 @@ passed.
 miss, deadline 04:00, created 7 Mar, no quiet hours: the final three hours from 01:00 give 01:00,
 01:30, 03:00 (the alarm; 02:00 and 02:30 don't exist and fold into 03:00 and 03:30), 03:30, then
 04:00, deadline passed.
+
+**11. A deadline inside the missing hour.** As example 10, but the deadline is 03:00: the final
+three hours from 00:00 give 00:00, 00:30, 01:00, then 01:30 (the alarm: the last hour, 02:00 to
+03:00, doesn't exist, and 02:00 and 02:30 fold to 03:00 and later, so they're dropped), then 03:00,
+deadline passed.
