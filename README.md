@@ -23,8 +23,21 @@ either phone.
 
 ## Status
 
-Under construction: both apps are being built now. Each folder's README says how to build and
-test it.
+Version 0.1 of both apps, built in parallel against the same spec, each tested on its own
+platform's terms:
+
+| | Android | iOS |
+| --- | --- | --- |
+| Nudges | exact alarms, rescheduled after a reboot, an update or a time-zone change | a rolling window under iOS's 64-notification limit, refilled on launch, answers and background refresh |
+| Answers on the notification | Done, In progress, Not today (Snooze and Move to… in the app) | Done, In progress, Not today, Snooze |
+| Can't-miss alarm | a full-screen notification over the lock screen | AlarmKit on iOS 26, a time-sensitive notification before |
+| Storage | Room | SwiftData in the app group |
+| Widget | Glance, with Done | WidgetKit, with Done |
+| Tests | 148 JVM (every worked example), 19 instrumented | 135 package (every worked example), 9 UI |
+
+Each folder's README says how to build and test it, and what was checked on the emulator or in
+the simulator. [docs/behaviour.md](docs/behaviour.md) also records the decisions made on the way,
+with Merab, as both apps were built.
 
 ## License
 
