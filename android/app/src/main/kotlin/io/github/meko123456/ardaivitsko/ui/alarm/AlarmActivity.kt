@@ -27,6 +27,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,6 +42,7 @@ import io.github.meko123456.ardaivitsko.data.OccurrenceItem
 import io.github.meko123456.ardaivitsko.nudge.Answer
 import io.github.meko123456.ardaivitsko.nudge.Intents
 import io.github.meko123456.ardaivitsko.ui.theme.ArDaivitskoTheme
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
@@ -58,6 +60,11 @@ class AlarmActivity : ComponentActivity() {
         setContent {
             ArDaivitskoTheme {
                 val item by container.store.observeOccurrence(occurrenceId).collectAsStateWithLifecycle(initialValue = null)
+                // Answered elsewhere (the notification, the widget) or deleted: nothing left to ring for.
+                LaunchedEffect(occurrenceId) {
+                    val current = container.store.observeOccurrence(occurrenceId).first { it == null || it.isDone }
+                    if (current == null || current.isDone) finish()
+                }
                 AlarmScreen(
                     item = item,
                     whyNow = item?.let {
