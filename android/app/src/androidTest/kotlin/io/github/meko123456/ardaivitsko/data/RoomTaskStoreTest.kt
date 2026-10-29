@@ -166,6 +166,33 @@ class RoomTaskStoreTest {
     }
 
     @Test
+    fun editing_a_one_off_tasks_day_moves_its_occurrence_and_keeps_its_state() = runTest {
+        val overdue = store.addTask(task("Overdue", day = today.minusDays(3)), today.minusDays(4), through = tomorrow)
+        val done = store.addTask(task("Done", day = today.minusDays(3)), today.minusDays(4), through = tomorrow)
+        val started = store.addTask(task("Started", day = today.minusDays(3)), today.minusDays(4), through = tomorrow)
+        val doneItem = store.undone().single { it.task.id == done }
+        store.saveStatus(doneItem.id, Answers.done(doneItem.status, now), answeredAt = now)
+        val startedItem = store.undone().single { it.task.id == started }
+        val marked = Answers.inProgress(startedItem.status, now)
+        store.saveStatus(startedItem.id, marked, answeredAt = now)
+
+        for (id in listOf(overdue, done, started)) {
+            store.updateTask(store.task(id)!!.copy(day = today), today, through = tomorrow, now = now)
+        }
+
+        val active = store.observeActive(today).first().associateBy { it.task.id }
+        // An unanswered overdue one is due today now, and no longer overdue.
+        assertEquals(today, active.getValue(overdue).day)
+        assertEquals(OccurrenceState.OPEN, active.getValue(overdue).state)
+        // Done stays Done, In progress stays In progress, each still a single occurrence.
+        assertEquals(OccurrenceState.DONE, active.getValue(done).state)
+        assertEquals(today, active.getValue(done).day)
+        assertEquals(OccurrenceState.IN_PROGRESS, active.getValue(started).state)
+        assertEquals(marked.inProgressSince, active.getValue(started).status.inProgressSince)
+        assertEquals(3, active.size)
+    }
+
+    @Test
     fun deleting_a_task_deletes_its_occurrences() = runTest {
         val taskId = store.addTask(task("Vitamins", repeat = Repeat.DAILY), today, through = tomorrow)
 

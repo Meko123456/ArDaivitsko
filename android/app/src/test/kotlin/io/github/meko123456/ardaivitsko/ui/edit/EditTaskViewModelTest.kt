@@ -4,10 +4,12 @@ import androidx.lifecycle.SavedStateHandle
 import io.github.meko123456.ardaivitsko.Harness
 import io.github.meko123456.ardaivitsko.MainDispatcherRule
 import io.github.meko123456.ardaivitsko.at
+import io.github.meko123456.ardaivitsko.core.OccurrenceState
 import io.github.meko123456.ardaivitsko.core.Repeat
 import io.github.meko123456.ardaivitsko.core.TaskDefaults
 import io.github.meko123456.ardaivitsko.data.AppSettings
 import io.github.meko123456.ardaivitsko.day
+import io.github.meko123456.ardaivitsko.nudge.Answer
 import io.github.meko123456.ardaivitsko.record
 import io.github.meko123456.ardaivitsko.task
 import kotlinx.coroutines.test.runTest
@@ -86,6 +88,36 @@ class EditTaskViewModelTest {
         assertEquals("Pay rent", restored.title)
         assertEquals(Repeat.MONTHLY, restored.repeat)
         assertEquals(4, restored.intervalHours)
+    }
+
+    @Test
+    fun `a one-off overdue task edited to today is due today and no longer overdue`() = runTest {
+        val h = Harness(at("2026-10-26 09:00"))
+        val id = h.add(task(title = "Renew the parking permit", day = "2026-10-26"))
+        h.time.now = at("2026-10-29 11:00")
+        val vm = h.viewModel(taskId = h.store.occurrence(id)!!.task.id)
+
+        vm.update { it.copy(day = day("2026-10-29")) }
+        vm.save()
+
+        val edited = h.store.occurrence(id)!!
+        assertEquals(day("2026-10-29"), edited.day)
+        assertEquals(OccurrenceState.OPEN, edited.state)
+        assertEquals("2026-10-29 13:00 regular", h.nextAlarm(id))
+    }
+
+    @Test
+    fun `a done one-off task edited to another day stays done`() = runTest {
+        val h = Harness(at("2026-10-26 09:00"))
+        val id = h.add(task(title = "Buy medicine", day = "2026-10-26"))
+        h.service.answer(id, Answer.Done)
+        val vm = h.viewModel(taskId = h.store.occurrence(id)!!.task.id)
+
+        vm.update { it.copy(day = day("2026-10-28")) }
+        vm.save()
+
+        assertEquals(OccurrenceState.DONE, h.store.occurrence(id)?.state)
+        assertEquals(day("2026-10-28"), h.store.occurrence(id)?.day)
     }
 
     @Test
