@@ -1,6 +1,7 @@
 import BackgroundTasks
 import Nudger
 import Nudges
+import os
 import SwiftUI
 import TaskStore
 import UserNotifications
@@ -95,18 +96,26 @@ enum BackgroundRefresh {
     static func schedule() {
         let request = BGAppRefreshTaskRequest(identifier: identifier)
         request.earliestBeginDate = Date(timeIntervalSinceNow: 4 * 3_600)
-        try? BGTaskScheduler.shared.submit(request)
+        do {
+            try BGTaskScheduler.shared.submit(request)
+        } catch {
+            // Background App Refresh is off, or (in the simulator) unavailable: the window is
+            // filled again when the app next runs, and catches up then.
+            refreshLog.error("Background refresh not scheduled: \(error, privacy: .public)")
+        }
     }
 
     static func run() async {
+        refreshLog.info("Background refresh")
         schedule()
         await Nudger.shared.refresh()
     }
 }
 
+private let refreshLog = Logger(subsystem: "io.github.meko123456.ardaivitsko", category: "refresh")
+
 #if DEBUG
 import NudgeKit
-import os
 
 private let seedLog = Logger(subsystem: "io.github.meko123456.ardaivitsko", category: "uitests")
 
