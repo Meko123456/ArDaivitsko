@@ -19,7 +19,7 @@ The app runs on iOS 17 and later.
 cd ios
 xcodegen generate                     # writes ArDaivitsko.xcodeproj from project.yml (not committed)
 open ArDaivitsko.xcodeproj            # run the ArDaivitsko scheme on a simulator or a phone
-(cd ArDaivitskoKit && swift test)     # the shared package's tests, on the Mac (118 tests)
+(cd ArDaivitskoKit && swift test)     # the shared package's tests, on the Mac (121 tests)
 swift tools/render-icon.swift         # redraws the app icons
 ```
 
@@ -136,10 +136,13 @@ Agreed with Merab while building, and being added to docs/behaviour.md; each has
   an overdue task moves it to tomorrow counted from today, and ends In progress.
 - A snooze tapped late at night nudges once after midnight; the new day keeps its own grid.
 - Two nudges of one task at one moment keep the strongest.
+- A repeating task whose first day had passed when it was created gets that day, overdue, then
+  the days from its creation on. Editing a day or repeat re-plans from today; answered days stay.
+- Snooze and Not today are offered in the app only for a task due today or overdue.
 
 ## Tests
 
-- **Package (Swift Testing, 118, on the Mac):** every worked example in docs/behaviour.md
+- **Package (Swift Testing, 121, on the Mac):** every worked example in docs/behaviour.md
   (1 to 7) and the four agreed since (8 to 11), exactly. Daylight saving in New York both ways.
   Quiet hours across and inside a day. Intervals of 1, 2 and 4 hours. Snoozes in and around the
   final window. In progress on a Can't-miss task. Tasks created after their deadline. Repeats

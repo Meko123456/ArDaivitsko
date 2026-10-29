@@ -54,8 +54,10 @@ public struct TaskSpec: Hashable, Sendable, Identifiable {
     public var draft: TaskDraft
     /// Nothing nudges before this moment.
     public var createdAt: Date
-    /// Its repeat makes occurrences from this day on: the first day, or the day the repeat last
-    /// changed, so an edit doesn't fill the past with occurrences nobody was asked about.
+    /// After its first day, its repeat makes occurrences from this day on: the day it was
+    /// created, or the day its repeat last changed. So a repeating task whose first day had already
+    /// passed has that day (overdue) and then the days from its creation on, and an edit doesn't
+    /// fill the past with occurrences nobody was asked about.
     public var since: Day
 
     public init(id: String, draft: TaskDraft, createdAt: Date, since: Day? = nil) {
@@ -65,14 +67,19 @@ public struct TaskSpec: Hashable, Sendable, Identifiable {
         self.since = max(since ?? draft.day, draft.day)
     }
 
-    /// Whether its repeat makes an occurrence on `day`.
+    /// Whether it has an occurrence on `day`: its first day, or a day its repeat makes from
+    /// `since` on.
     public func occurs(on day: Day) -> Bool {
-        day >= since && draft.repeats.occurs(on: day, first: draft.day)
+        day == draft.day || (day >= since && draft.repeats.occurs(on: day, first: draft.day))
     }
 
-    /// The days its repeat makes occurrences on, from `from` through `through`.
+    /// The days it has occurrences on, from `from` through `through`.
     public func days(from: Day, through: Day) -> [Day] {
-        draft.repeats.days(first: draft.day, from: max(from, since), through: through)
+        var days = draft.repeats.days(first: draft.day, from: max(from, since), through: through)
+        if draft.day >= from, draft.day <= through, days.first != draft.day {
+            days.insert(draft.day, at: 0)
+        }
+        return days
     }
 }
 

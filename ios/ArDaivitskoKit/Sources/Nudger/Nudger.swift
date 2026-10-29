@@ -204,7 +204,7 @@ public final class Nudger {
 
     @discardableResult
     public func add(_ draft: TaskDraft) async -> TaskModel {
-        let task = store.add(draft, at: now, through: horizon)
+        let task = store.add(draft, at: now, today: today, through: horizon)
         await askPermissionsIfNeeded(cantMiss: draft.rule.cantMiss)
         await refresh()
         return task

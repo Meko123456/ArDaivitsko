@@ -118,10 +118,12 @@ public final class TaskStore {
 
     // MARK: Writing
 
-    /// Saves a new task and the occurrences its repeat makes up to `through`.
+    /// Saves a new task and the occurrences its repeat makes up to `through`. A repeating task
+    /// whose first day is already past gets that day, overdue, then the days from `today` on.
     @discardableResult
-    public func add(_ draft: TaskDraft, at now: Date, through last: Day) -> TaskModel {
+    public func add(_ draft: TaskDraft, at now: Date, today: Day, through last: Day) -> TaskModel {
         let task = TaskModel(draft: draft, createdAt: now)
+        task.sinceKey = max(draft.day, today).key
         context.insert(task)
         materialize(task, through: last)
         save()
@@ -172,7 +174,7 @@ public final class TaskStore {
     private func materialize(_ task: TaskModel, through last: Day) {
         let spec = task.spec
         var saved = Set(task.occurrences.map(\.seriesDayKey))
-        for day in spec.days(from: spec.since, through: last) where !saved.contains(day.key) {
+        for day in spec.days(from: spec.draft.day, through: last) where !saved.contains(day.key) {
             let occurrence = OccurrenceModel(seriesDay: day)
             context.insert(occurrence)
             occurrence.task = task
@@ -229,6 +231,7 @@ public final class TaskStore {
                 rule: entry.rule ?? .standard, repeats: entry.repeats ?? .never
             )
             let task = TaskModel(draft: draft, createdAt: now.addingTimeInterval(entry.createdOffset ?? -86_400))
+            task.sinceKey = max(day, Day(task.createdAt, in: calendar)).key
             context.insert(task)
             let first = OccurrenceModel(seriesDay: day)
             context.insert(first)

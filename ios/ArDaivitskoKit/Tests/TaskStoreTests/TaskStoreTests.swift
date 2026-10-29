@@ -33,7 +33,7 @@ struct TaskStoreTests {
 
     @Test("A new one-off task gets its one occurrence, open, with the task's rule")
     func addOneOff() throws {
-        let task = store.add(draft("Pay rent", cantMiss: true), at: at(today, 9, 0), through: horizon)
+        let task = store.add(draft("Pay rent", cantMiss: true), at: at(today, 9, 0), today: today, through: horizon)
         let occurrence = try #require(try only(task).value)
         #expect(occurrence.day == today)
         #expect(occurrence.state == .open)
@@ -45,7 +45,7 @@ struct TaskStoreTests {
 
     @Test("A daily task is saved through the horizon, and days the app missed come back as overdue")
     func materializeDaily() throws {
-        let task = store.add(draft("Vitamins", on: today, repeats: .daily), at: at(today, 9, 0), through: horizon)
+        let task = store.add(draft("Vitamins", on: today, repeats: .daily), at: at(today, 9, 0), today: today, through: horizon)
         #expect(task.occurrences.map(\.seriesDayKey).sorted() == (0...3).map { today.adding(days: $0).key })
         // Five days later the app opens again.
         let later = today.adding(days: 5)
@@ -56,16 +56,25 @@ struct TaskStoreTests {
         #expect(overdue.first?.day == today)
     }
 
+    @Test("A repeating task whose first day is past gets that day, overdue, then the days from its creation on")
+    func pastFirstDay() throws {
+        let task = store.add(draft("Stretch", on: today.adding(days: -5), repeats: .daily), at: at(today, 9, 0), today: today, through: horizon)
+        let saved = task.occurrences.map(\.seriesDayKey).sorted()
+        #expect(saved == [today.adding(days: -5).key] + (0...3).map { today.adding(days: $0).key })
+        let overdue = Agenda.overdue(before: today, in: store.snapshots())
+        #expect(overdue.map(\.day) == [today.adding(days: -5)])
+    }
+
     @Test("A monthly task from the 31st is saved on each month's last day")
     func materializeMonthly() {
         let first = Day(year: 2027, month: 1, day: 31)
-        let task = store.add(draft("Invoice", on: first, repeats: .monthly), at: at(today, 9, 0), through: Day(year: 2027, month: 5, day: 31))
+        let task = store.add(draft("Invoice", on: first, repeats: .monthly), at: at(today, 9, 0), today: today, through: Day(year: 2027, month: 5, day: 31))
         #expect(task.occurrences.map(\.seriesDayKey).sorted() == [20_270_131, 20_270_228, 20_270_331, 20_270_430, 20_270_531])
     }
 
     @Test("Each answer changes the saved occurrence; In progress and snooze keep their moments")
     func answers() throws {
-        let task = store.add(draft("Call the bank"), at: at(today.adding(days: -1), 9, 0), through: horizon)
+        let task = store.add(draft("Call the bank"), at: at(today.adding(days: -1), 9, 0), today: today, through: horizon)
         let occurrence = try only(task)
         store.answer(.inProgress, to: occurrence, at: at(today, 13, 5), calendar: tbilisi)
         #expect(occurrence.state == .inProgress)
@@ -82,7 +91,7 @@ struct TaskStoreTests {
 
     @Test("Not today moves the occurrence to tomorrow, and Undo puts it back as it was")
     func notTodayAndUndo() throws {
-        let task = store.add(draft("Renew the parking permit"), at: at(today.adding(days: -1), 9, 0), through: horizon)
+        let task = store.add(draft("Renew the parking permit"), at: at(today.adding(days: -1), 9, 0), today: today, through: horizon)
         let occurrence = try only(task)
         store.answer(.inProgress, to: occurrence, at: at(today, 10, 30), calendar: tbilisi)
         let moved = try #require(store.answer(.notToday, to: occurrence, at: at(today, 11, 0), calendar: tbilisi))
@@ -101,7 +110,7 @@ struct TaskStoreTests {
 
     @Test("Undo does nothing once the moved occurrence has been answered again")
     func undoAfterAnotherAnswer() throws {
-        let task = store.add(draft("Permit"), at: at(today.adding(days: -1), 9, 0), through: horizon)
+        let task = store.add(draft("Permit"), at: at(today.adding(days: -1), 9, 0), today: today, through: horizon)
         let occurrence = try only(task)
         store.answer(.notToday, to: occurrence, at: at(today, 11, 0), calendar: tbilisi)
         store.answer(.done, to: occurrence, at: at(today, 11, 1), calendar: tbilisi)
@@ -111,7 +120,7 @@ struct TaskStoreTests {
 
     @Test("Editing a one-off task's day moves its occurrence and keeps its answer")
     func editOneOffDay() throws {
-        let task = store.add(draft("Dentist"), at: at(today.adding(days: -1), 9, 0), through: horizon)
+        let task = store.add(draft("Dentist"), at: at(today.adding(days: -1), 9, 0), today: today, through: horizon)
         let occurrence = try only(task)
         store.answer(.inProgress, to: occurrence, at: at(today, 9, 0), calendar: tbilisi)
         store.update(task, to: draft("Dentist, 2nd visit", on: today.adding(days: 2)), today: today, through: horizon)
@@ -124,7 +133,7 @@ struct TaskStoreTests {
     @Test("Changing a repeat replaces the unanswered occurrences from today on and keeps the rest")
     func editRepeat() throws {
         let start = today.adding(days: -2)
-        let task = store.add(draft("Stretch", on: start, repeats: .daily), at: at(start, 8, 0), through: horizon)
+        let task = store.add(draft("Stretch", on: start, repeats: .daily), at: at(start, 8, 0), today: start, through: horizon)
         let yesterday = try #require(task.occurrences.first { $0.seriesDayKey == today.adding(days: -1).key })
         store.answer(.done, to: yesterday, at: at(today.adding(days: -1), 12, 0), calendar: tbilisi)
         let tomorrow = try #require(task.occurrences.first { $0.seriesDayKey == today.adding(days: 1).key })
@@ -144,7 +153,7 @@ struct TaskStoreTests {
 
     @Test("Deleting a task deletes its occurrences")
     func delete() throws {
-        let task = store.add(draft("Daily", repeats: .daily), at: at(today, 9, 0), through: horizon)
+        let task = store.add(draft("Daily", repeats: .daily), at: at(today, 9, 0), today: today, through: horizon)
         #expect(!store.unansweredOccurrences().isEmpty)
         store.delete(task)
         #expect(store.tasks().isEmpty)
@@ -154,7 +163,7 @@ struct TaskStoreTests {
 
     @Test("A repeat's occurrence named by task and day is saved when it's first answered")
     func upcomingRef() throws {
-        let task = store.add(draft("Weekly review", on: today, repeats: .weekly), at: at(today, 9, 0), through: horizon)
+        let task = store.add(draft("Weekly review", on: today, repeats: .weekly), at: at(today, 9, 0), today: today, through: horizon)
         let ref = OccurrenceRef.upcoming(taskID: task.id.uuidString, day: today.adding(days: 21)).string
         let occurrence = try #require(store.occurrence(ref: ref))
         #expect(occurrence.seriesDayKey == today.adding(days: 21).key)
@@ -166,7 +175,7 @@ struct TaskStoreTests {
 
     @Test("A seed replaces everything, with days and moments relative to now")
     func seed() throws {
-        store.add(draft("Old"), at: at(today, 9, 0), through: horizon)
+        store.add(draft("Old"), at: at(today, 9, 0), today: today, through: horizon)
         let now = at(today, 12, 0)
         let seed = Seed(tasks: [
             Seed.Entry(title: "Snoozed", dayOffset: 0, snoozedOffset: -3_540),
@@ -191,7 +200,7 @@ struct TaskStoreTests {
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "test.store")
         let writer = TaskStore(container: try ModelContainer(for: TaskStore.schema, configurations: ModelConfiguration(schema: TaskStore.schema, url: url)))
-        writer.add(draft("Seen by the widget"), at: at(today, 9, 0), through: horizon)
+        writer.add(draft("Seen by the widget"), at: at(today, 9, 0), today: today, through: horizon)
         let reader = TaskStore(container: try ModelContainer(for: TaskStore.schema, configurations: ModelConfiguration(schema: TaskStore.schema, url: url)))
         #expect(reader.tasks().map(\.title) == ["Seen by the widget"])
         #expect(reader.unansweredOccurrences().count == 1)

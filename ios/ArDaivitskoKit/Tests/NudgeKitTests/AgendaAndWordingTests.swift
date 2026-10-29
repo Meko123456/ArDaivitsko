@@ -56,9 +56,28 @@ struct AgendaTests {
         #expect(Agenda.occurrence("missing", in: [weekly]) == nil)
     }
 
+    @Test("A repeating task created after its first day: that day, then the days from its creation on")
+    func pastFirstDay() {
+        var daily = task("Stretch", first: today.adding(days: -5), repeats: .daily)
+        daily.spec = TaskSpec(id: daily.spec.id, draft: daily.spec.draft, createdAt: daily.spec.createdAt, since: today)
+        #expect(Agenda.overdue(before: today, in: [daily]).map(\.day) == [today.adding(days: -5)])
+        #expect(daily.spec.days(from: today.adding(days: -10), through: today.adding(days: 1)) == [today.adding(days: -5), today, today.adding(days: 1)])
+        #expect(daily.spec.occurs(on: today.adding(days: -5)) && !daily.spec.occurs(on: today.adding(days: -2)))
+    }
+
+    @Test("Snooze and Not today are offered for today or overdue, not for a day still to come or a done one")
+    func whatCanBeAnswered() {
+        let created = at(today.adding(days: -9), 9, 0)
+        #expect(occurrence(on: today, created: created).canMoveToTomorrow(today: today))
+        #expect(occurrence(on: today.adding(days: -3), created: created).canMoveToTomorrow(today: today))
+        #expect(!occurrence(on: today.adding(days: 1), created: created).canMoveToTomorrow(today: today))
+        #expect(!occurrence(on: today, created: created, state: .done).canMoveToTomorrow(today: today))
+    }
+
     @Test("A repeat changed by an edit makes no occurrences before the edit's day")
     func since() {
-        var daily = task("Stretch", first: today.adding(days: -10), repeats: .daily)
+        // Its first day was saved when it was created, and answered.
+        var daily = task("Stretch", first: today.adding(days: -10), repeats: .daily, saved: [saved("Stretch", on: today.adding(days: -10), state: .done)])
         daily.spec = TaskSpec(id: daily.spec.id, draft: daily.spec.draft, createdAt: daily.spec.createdAt, since: today.adding(days: -1))
         #expect(Agenda.overdue(before: today, in: [daily]).map(\.day) == [today.adding(days: -1)])
         #expect(Agenda.occurrences(on: today.adding(days: -2), in: [daily]).isEmpty)
