@@ -115,7 +115,10 @@ fun TodayScreen(
                     TaskCard(row, onOpen = { onOpen(row.occurrenceId) }, onDone = { viewModel.markDone(row) }, onReopen = { viewModel.reopen(row.occurrenceId) })
                 }
             }
-            item(key = "today-header") { Header("Today", MaterialTheme.colorScheme.primary) }
+            // Under the title "Today", a second "Today" only helps when the overdue come first.
+            if (state.overdue.isNotEmpty()) {
+                item(key = "today-header") { Header("Today", MaterialTheme.colorScheme.primary) }
+            }
             if (state.today.isEmpty() && !state.loading) {
                 item(key = "empty") {
                     Text(
