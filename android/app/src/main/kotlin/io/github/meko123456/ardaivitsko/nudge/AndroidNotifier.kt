@@ -2,7 +2,6 @@ package io.github.meko123456.ardaivitsko.nudge
 
 import android.Manifest
 import android.app.Notification
-import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -25,6 +24,9 @@ import java.time.Instant
  * alerts again. It shows the task, why now, and Done, In progress and Not today. Tapping it opens
  * the task, with Snooze 1 hour and Move to…. The alarm is the same notification on the alarm
  * channel, with a full-screen intent and a sound that repeats until it's answered or stopped.
+ *
+ * Nudges aren't put in a group of their own: Android removes a group's children with its summary,
+ * which took a waiting nudge away when another was answered. Android bundles four or more by itself.
  */
 class AndroidNotifier(
     private val context: Context,
@@ -43,6 +45,7 @@ class AndroidNotifier(
 
         val builder = NotificationCompat.Builder(context, if (silent) Channels.NUDGES else Channels.forKind(nudge.kind))
             .setSmallIcon(R.drawable.ic_notification)
+            .setColor(ACCENT)
             .setContentTitle(item.task.title)
             .setContentText(why)
             .setStyle(NotificationCompat.BigTextStyle().bigText(listOf(why, item.task.note).filter { it.isNotBlank() }.joinToString("\n")))
@@ -56,7 +59,6 @@ class AndroidNotifier(
             .setSilent(silent)
             .addAction(0, context.getString(R.string.action_done), Intents.answer(context, id, Intents.ACTION_DONE))
             .addAction(0, context.getString(R.string.action_in_progress), Intents.answer(context, id, Intents.ACTION_IN_PROGRESS))
-        if (!alarm) builder.setGroup(GROUP)
         // Not today means nothing for a task that isn't for today yet (the heads-up the evening before).
         if (Answers.canMoveToTomorrow(item.status, today)) {
             val notToday = if (Answers.notTodayNeedsConfirmation(item.task, item.status, today)) {
@@ -73,7 +75,6 @@ class AndroidNotifier(
         // A nudge on another channel (the alarm after final ones) is a new notification, not an update.
         manager.cancel(TAG_NUDGE, id.toInt())
         notify(TAG_NUDGE, id.toInt(), notification)
-        updateSummary()
     }
 
     override fun postMoved(item: OccurrenceItem) {
@@ -99,33 +100,12 @@ class AndroidNotifier(
     override fun cancel(occurrenceId: Long) {
         manager.cancel(TAG_NUDGE, occurrenceId.toInt())
         manager.cancel(TAG_MOVED, occurrenceId.toInt())
-        updateSummary()
     }
 
     private fun subText(item: OccurrenceItem): String? = when {
         item.state == OccurrenceState.IN_PROGRESS -> context.getString(R.string.state_in_progress)
         item.task.cantMiss -> context.getString(R.string.cant_miss)
         else -> null
-    }
-
-    /** Two or more nudges waiting fold into one group under a quiet summary. */
-    private fun updateSummary() {
-        val waiting = context.getSystemService(NotificationManager::class.java)
-            ?.activeNotifications.orEmpty()
-            .count { it.tag == TAG_NUDGE && it.notification.group == GROUP }
-        if (waiting < 2) {
-            manager.cancel(TAG_SUMMARY, 0)
-            return
-        }
-        val summary = NotificationCompat.Builder(context, Channels.NUDGES)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(context.resources.getQuantityString(R.plurals.tasks_waiting, waiting, waiting))
-            .setGroup(GROUP)
-            .setGroupSummary(true)
-            .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
-            .setSilent(true)
-            .build()
-        notify(TAG_SUMMARY, 0, summary)
     }
 
     /** Without the permission (or with notifications turned off) a nudge has nowhere to go; Settings says so. */
@@ -141,8 +121,8 @@ class AndroidNotifier(
     companion object {
         const val TAG_NUDGE = "nudge"
         const val TAG_MOVED = "moved"
-        private const val TAG_SUMMARY = "summary"
-        private const val GROUP = "io.github.meko123456.ardaivitsko.NUDGES"
+        /** The app's pomegranate, for the notification's accents. */
+        private const val ACCENT = 0xFF9A2B3D.toInt()
         private val MOVED_TIMEOUT: Duration = Duration.ofHours(1)
     }
 }

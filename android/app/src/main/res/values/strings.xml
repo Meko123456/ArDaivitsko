@@ -19,10 +19,6 @@
     <string name="cant_miss">Can\'t miss</string>
     <string name="moved_to_tomorrow">Moved to tomorrow</string>
     <string name="moved_to_day">Moved to %1$s</string>
-    <plurals name="tasks_waiting">
-        <item quantity="one">%d task waiting</item>
-        <item quantity="other">%d tasks waiting</item>
-    </plurals>
 
     <string name="widget_name">Today</string>
     <string name="widget_description">Today\'s open tasks, overdue first, each with a Done button</string>
