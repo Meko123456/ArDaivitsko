@@ -178,13 +178,26 @@ Bugs these checks found, fixed in their own commits:
 
 ### Not checked on a device
 
-- A real phone. Only the API 36 emulator was used. Android 12 to 14 were not run, so neither
+- A real phone, in use. It's installed on a Galaxy S24 Ultra (Android 16) since 30 October and
+  was opened there once; everything else was checked on the API 36 emulator. Android 12 to 14 were not run, so neither
   was the permission flow for exact alarms on Android 12 (SCHEDULE_EXACT_ALARM, which the user
   can refuse).
 - Snooze and Move to… were tested in ViewModel tests, not tapped on the emulator. The heads-up
   the evening before, daylight-saving days and monthly repeats were tested in JVM tests only.
 - The generated widget preview for Android 15+: the picker showed the plain preview layout.
-- Battery savers that kill apps on some phones. The app doesn't ask to be exempted from
-  battery optimization.
+- Samsung's own battery lists ("Sleeping apps", "Deep sleeping apps") are separate from
+  Android's battery optimization, which Settings now asks to be left out of (below). Not yet
+  checked on a Samsung over days of real use.
 - On Android 15+ the system softens notifications that arrive in a burst ("Muting recently
   noisy" in the log), so when several tasks nudge at the same moment, only the first may sound.
+
+## Battery optimization (31 October)
+
+Settings shows a fourth row under "What the phone allows": **Battery**. While the app is
+battery-optimized, the row says the phone may hold nudges back, and **Allow** opens Android's own
+question, "Let app always run in background?". Samsung in particular puts optimized apps to sleep,
+and a reminder that comes late is no reminder. Checked on the emulator: the row read "Optimized",
+Allow brought up the question, and after Allow the row read "Unrestricted" and
+`dumpsys deviceidle whitelist` listed the app. The permission
+(`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`) is one Play allows for apps whose core is alarms and
+reminders.

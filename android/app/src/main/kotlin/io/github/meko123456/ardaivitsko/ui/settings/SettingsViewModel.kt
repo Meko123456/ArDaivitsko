@@ -19,7 +19,7 @@ import java.time.LocalTime
 data class SettingsState(
     val loading: Boolean = true,
     val settings: AppSettings = AppSettings(),
-    val abilities: Abilities = Abilities(notifications = true, exactAlarms = true, fullScreen = true),
+    val abilities: Abilities = Abilities(notifications = true, exactAlarms = true, fullScreen = true, batteryUnrestricted = true),
 )
 
 /**

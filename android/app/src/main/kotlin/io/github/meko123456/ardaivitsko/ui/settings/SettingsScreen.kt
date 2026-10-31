@@ -48,6 +48,7 @@ fun SettingsScreen(
     onFixNotifications: () -> Unit,
     onFixExactAlarms: () -> Unit,
     onFixFullScreen: () -> Unit,
+    onFixBattery: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val formats = LocalFormats.current
@@ -108,6 +109,14 @@ fun SettingsScreen(
                 allowed = state.abilities.fullScreen,
                 fixLabel = "Allow",
                 onFix = onFixFullScreen,
+            )
+            AbilityRow(
+                title = "Battery",
+                allowedText = "Unrestricted: the phone won't put nudges to sleep.",
+                blockedText = "Optimized: the phone may hold nudges back to save battery.",
+                allowed = state.abilities.batteryUnrestricted,
+                fixLabel = "Allow",
+                onFix = onFixBattery,
             )
 
             SectionHeader("About")

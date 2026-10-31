@@ -141,6 +141,7 @@ fun AppNavHost(container: AppContainer, openRequest: StateFlow<OpenRequest?>, on
                     onFixNotifications = fixNotifications,
                     onFixExactAlarms = { context.openSettings(container.abilities.exactAlarmSettings()) },
                     onFixFullScreen = { context.openSettings(container.abilities.fullScreenSettings()) },
+                    onFixBattery = { context.openSettings(container.abilities.batterySettings()) },
                 )
             }
             composable<TaskRoute> { entry ->

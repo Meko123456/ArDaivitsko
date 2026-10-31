@@ -23,7 +23,7 @@ class SettingsViewModelTest {
         val h = Harness(at("2026-10-29 21:00"))
         val id = h.add(task())
         h.advanceTo("2026-10-29 23:00")
-        val vm = SettingsViewModel(h.settings, h.service) { Abilities(notifications = true, exactAlarms = true, fullScreen = true) }
+        val vm = SettingsViewModel(h.settings, h.service) { Abilities(notifications = true, exactAlarms = true, fullScreen = true, batteryUnrestricted = true) }
         keepCollecting(vm.state)
 
         vm.setQuietHoursOn(false)
@@ -41,7 +41,7 @@ class SettingsViewModelTest {
     @Test
     fun `defaults for new tasks are saved`() = runTest {
         val h = Harness(at("2026-10-29 09:00"))
-        val vm = SettingsViewModel(h.settings, h.service) { Abilities(notifications = true, exactAlarms = true, fullScreen = true) }
+        val vm = SettingsViewModel(h.settings, h.service) { Abilities(notifications = true, exactAlarms = true, fullScreen = true, batteryUnrestricted = true) }
         keepCollecting(vm.state)
 
         vm.setDefaultInterval(2)
@@ -57,16 +57,19 @@ class SettingsViewModelTest {
     @Test
     fun `what the phone allows is read again on resume`() = runTest {
         val h = Harness(at("2026-10-29 09:00"))
-        var allowed = Abilities(notifications = false, exactAlarms = true, fullScreen = false)
+        var allowed = Abilities(notifications = false, exactAlarms = true, fullScreen = false, batteryUnrestricted = false)
         val vm = SettingsViewModel(h.settings, h.service) { allowed }
         keepCollecting(vm.state)
 
         assertFalse(vm.state.value.abilities.notifications)
+        assertFalse(vm.state.value.abilities.batteryUnrestricted)
 
-        allowed = Abilities(notifications = true, exactAlarms = true, fullScreen = true)
+        // Back from Android's battery question, answered "Allow".
+        allowed = Abilities(notifications = true, exactAlarms = true, fullScreen = true, batteryUnrestricted = true)
         vm.refreshAbilities()
 
         assertTrue(vm.state.value.abilities.notifications)
         assertTrue(vm.state.value.abilities.fullScreen)
+        assertTrue(vm.state.value.abilities.batteryUnrestricted)
     }
 }
