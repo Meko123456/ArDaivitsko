@@ -28,7 +28,7 @@ platform's terms:
 
 | | Android | iOS |
 | --- | --- | --- |
-| Nudges | exact alarms, rescheduled after a reboot, an update or a time-zone change | a rolling window under iOS's 64-notification limit, refilled on launch, answers and background refresh |
+| Nudges | exact alarms, rescheduled after a reboot, an update, a time-zone change or a restore on a new phone | a rolling window under iOS's 64-notification limit, refilled on launch, answers and background refresh |
 | Answers on the notification | Done, In progress, Not today (Snooze and Move to… in the app) | Done, In progress, Not today, Snooze |
 | Can't-miss alarm | a full-screen notification over the lock screen | AlarmKit on iOS 26, a time-sensitive notification before |
 | Storage | Room | SwiftData in the app group |

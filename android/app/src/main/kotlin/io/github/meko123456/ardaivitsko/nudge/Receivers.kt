@@ -35,8 +35,9 @@ class AnswerReceiver : BroadcastReceiver() {
 }
 
 /**
- * The phone restarted, the clock or time zone changed, the app was updated, or exact alarms were
- * allowed: every alarm is set again from the planner, and missed nudges come as one catch-up each.
+ * The phone restarted, the clock or time zone changed, the app was updated, exact alarms were
+ * allowed, or its data was restored (on a new phone, or a reinstall): every alarm is set again from
+ * the planner, and missed nudges come as one catch-up each.
  */
 class RescheduleReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -46,6 +47,7 @@ class RescheduleReceiver : BroadcastReceiver() {
             Intent.ACTION_TIMEZONE_CHANGED,
             Intent.ACTION_MY_PACKAGE_REPLACED,
             AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED,
+            Intents.ACTION_RESTORED,
             -> Unit
             else -> return
         }

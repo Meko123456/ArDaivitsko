@@ -155,6 +155,11 @@ I added tasks through the app as a user would, and moved the clock with
   - Turning the clock back re-armed the 23:00 alarm.
   - A real guest reboot (`adb reboot`) brought every alarm back from `BOOT_COMPLETED`, before
     the app was opened.
+  - A restore brought them back too, with the app never opened (Android's local backup
+    transport, `bmgr`). After a reinstall restored the data, 10 seconds later the 16:00 nudge
+    and the midnight tick were set again. The same happened when the restore went into a
+    force-stopped app, which Android had marked stopped: the restore itself un-stops the app,
+    so the alarm still reaches it.
 - **The widget:** placed from the launcher's picker, which showed its preview. It listed the
   overdue tasks first, and its Done marked the task done, redrew the widget and removed the
   alarm.
@@ -175,6 +180,9 @@ Bugs these checks found, fixed in their own commits:
 - Re-posting a nudge silenced it in Android 16's regrouping.
 - A full-screen intent fires only for a new notification, so the alarm got a tag of its own.
 - Android 15+ mutes later notifications in a burst, so the alarm is posted first.
+- A restore (a new phone, or a reinstall) brought the tasks back without their alarms, so
+  nothing nudged until the app was opened. The backup agent now leaves one alarm when the
+  restore finishes, and that sets every alarm again, as after a reboot.
 
 ### Not checked on a device
 
@@ -182,6 +190,8 @@ Bugs these checks found, fixed in their own commits:
   was opened there once; everything else was checked on the API 36 emulator. Android 12 to 14 were not run, so neither
   was the permission flow for exact alarms on Android 12 (SCHEDULE_EXACT_ALARM, which the user
   can refuse).
+- A restore from Google's own backup on a real phone: the restores above used the local
+  transport.
 - Snooze and Move to… were tested in ViewModel tests, not tapped on the emulator. The heads-up
   the evening before, daylight-saving days and monthly repeats were tested in JVM tests only.
 - The generated widget preview for Android 15+: the picker showed the plain preview layout.

@@ -21,6 +21,8 @@
     <application
         android:name=".ArDaivitskoApp"
         android:allowBackup="true"
+        android:backupAgent=".backup.RestoreAgent"
+        android:fullBackupOnly="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="false"

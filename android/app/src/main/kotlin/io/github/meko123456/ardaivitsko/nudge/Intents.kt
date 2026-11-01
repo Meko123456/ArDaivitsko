@@ -22,6 +22,9 @@ object Intents {
     const val ACTION_UNDO_MOVE = "$PREFIX.UNDO_MOVE"
     const val ACTION_DAY_TICK = "$PREFIX.DAY_TICK"
 
+    /** Sent to [RescheduleReceiver] after Android restores the app's data, on a new phone or a reinstall. */
+    const val ACTION_RESTORED = "$PREFIX.RESTORED"
+
     /** One action per occurrence, so `dumpsys alarm` names the occurrence an alarm is for. */
     fun nudgeAction(occurrenceId: Long) = "$PREFIX.NUDGE/$occurrenceId"
 
