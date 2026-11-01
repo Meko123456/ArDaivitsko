@@ -33,7 +33,7 @@ platform's terms:
 | Can't-miss alarm | a full-screen notification over the lock screen | AlarmKit on iOS 26, a time-sensitive notification before |
 | Storage | Room | SwiftData in the app group |
 | Widget | Glance, with Done | WidgetKit, with Done |
-| Tests | 148 JVM (every worked example), 19 instrumented | 135 package (every worked example), 9 UI |
+| Tests | 148 JVM (every worked example), 21 instrumented | 135 package (every worked example), 9 UI |
 
 Each folder's README says how to build and test it, and what was checked on the emulator or in
 the simulator. [docs/behaviour.md](docs/behaviour.md) also records the decisions made on the way,

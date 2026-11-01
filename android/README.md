@@ -27,12 +27,16 @@ cd android
 ./gradlew :app:installDebug                       # on a connected phone or emulator
 ./gradlew :core:test :app:testDebugUnitTest       # every JVM test (148)
 ./gradlew :app:lintDebug                          # lint; a warning fails the build
-./gradlew :app:connectedDebugAndroidTest          # Room, notification and Compose tests (19)
+./gradlew :app:connectedDebugAndroidTest          # Room, notification, restore and Compose tests (21)
 ./gradlew :app:assembleRelease                    # minified with R8, unsigned
 ```
 
 `connectedDebugAndroidTest` starts the app with an in-memory database (`TestRunner`), so it never
 touches the tasks on the phone. It does uninstall the app when it finishes, as Gradle always does.
+To keep the app, install both APKs (`assembleDebug assembleDebugAndroidTest`) and run
+`adb shell am instrument -w io.github.meko123456.ardaivitsko.test/io.github.meko123456.ardaivitsko.TestRunner`.
+The tests' alarms are the app's own, though, with ids from 1 like the real tasks', so open the app
+afterwards: it sets the real tasks' alarms again.
 
 ## Architecture
 
