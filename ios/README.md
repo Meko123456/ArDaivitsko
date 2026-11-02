@@ -149,23 +149,27 @@ in `PlannerEdgeTests`, `WorkedExampleTests` or `OneNudgePerTaskTests`:
   the days from its creation on. Editing a repeating task's day or repeat re-plans from today;
   answered days stay. Editing a one-off task's day moves its one occurrence and keeps its state
   (Done stays Done, In progress keeps its start); one that Not today had moved becomes Open.
-- Snooze and Not today are offered in the app only for a task due today or overdue.
+- Snooze and Not today are offered in the app only for a task due today or overdue. **Move to…**
+  is on a task's screen for any day still open, except a quiet earlier one: a calendar from today
+  on, opening on the next day. It moves the task like Not today, with the same Undo ("Pay rent
+  moved to 6 Nov").
 
 ## Tests
 
-- **Package (Swift Testing, 135, on the Mac):** every worked example in docs/behaviour.md
+- **Package (Swift Testing, 145, on the Mac):** every worked example in docs/behaviour.md
   (1 to 13), exactly. Daylight saving in New York both ways.
   Quiet hours across and inside a day. Intervals of 1, 2 and 4 hours. Snoozes in and around the
   final window. In progress on a Can't-miss task. Tasks created after their deadline. Repeats
   (monthly clamping, leap years, weekly). One nudge per task: a week of missed days, a weekly
   task, In progress on an older day, the latest day Done, Not today on daily and monthly tasks,
-  Skip. The 64-request window and catch-ups. The SwiftData store
+  Skip. Move to…, and its Undo. The 64-request window and catch-ups. The SwiftData store
   on an in-memory container, and on a file a second container reads, as the widget does. The
   notification categories, requests and scheduler against an in-memory center. The Nudger end to
   end: Done from a notification leaves nothing pending or shown for that task.
-- **UI tests (XCUITest, 9):** add a task and a Can't-miss one; Done from the row and back; Done
+- **UI tests (XCUITest, 10):** add a task and a Can't-miss one; Done from the row and back; Done
   leaves no notifications pending for that task (Debug builds show the count in Settings); In
-  progress; Not today with Undo, and the task found on tomorrow in the calendar; a Can't-miss
+  progress; Not today with Undo, and the task found on tomorrow in the calendar; Move to… a
+  day picked in the calendar, with Undo; a Can't-miss
   task's last day asks before moving; overdue comes first; a daily task's missed days are quiet,
   offer only Done and Skip, and Skip takes one off Today. Each test seeds its tasks
   (ARDAIVITSKO_SEED, Debug builds only), answers the permission prompts, and launches the app
@@ -220,7 +224,6 @@ Not checked, or not working, in the simulator:
   "skip all" yet. On the small widget the quiet days come after the tasks that nudge.
 - Yesterday's shown nudges leave Notification Center when the app next runs (opened, answered,
   or a background refresh), not at midnight itself, which iOS doesn't wake the app for.
-- No "Move to…" a chosen day; Not today moves to tomorrow, and the editor changes a task's day.
 - English only.
 
 ## License

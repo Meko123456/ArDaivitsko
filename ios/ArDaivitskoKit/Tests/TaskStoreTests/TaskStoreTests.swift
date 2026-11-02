@@ -122,6 +122,36 @@ struct TaskStoreTests {
         #expect(!store.undoMove(occurrence))
     }
 
+    @Test("Move to… puts the occurrence on the chosen day, and Undo puts it back as it was")
+    func moveToAndUndo() throws {
+        let task = store.add(draft("Renew the parking permit"), at: at(today.adding(days: -1), 9, 0), today: today, through: horizon)
+        let occurrence = try only(task)
+        store.answer(.inProgress, to: occurrence, at: at(today, 10, 30), calendar: tbilisi)
+        let moved = try #require(store.move(occurrence, to: today.adding(days: 4), at: at(today, 11, 0)))
+        #expect(moved.day == today.adding(days: 4))
+        #expect(occurrence.state == .moved)
+        #expect(occurrence.dayKey == today.adding(days: 4).key)
+        #expect(occurrence.seriesDayKey == today.key)
+        #expect(occurrence.inProgressSince == nil)
+        #expect(store.undoMove(occurrence, movedAt: at(today, 11, 0)))
+        #expect(occurrence.state == .inProgress)
+        #expect(occurrence.dayKey == today.key)
+        #expect(occurrence.inProgressSince == at(today, 10, 30))
+    }
+
+    @Test("Move to… changes nothing for the day it already has, or once it's done")
+    func moveToNothing() throws {
+        let task = store.add(draft("Dentist"), at: at(today, 9, 0), today: today, through: horizon)
+        let occurrence = try only(task)
+        #expect(store.move(occurrence, to: today, at: at(today, 11, 0)) == nil)
+        #expect(occurrence.state == .open)
+        #expect(occurrence.beforeMove == nil)
+        store.answer(.done, to: occurrence, at: at(today, 11, 1), calendar: tbilisi)
+        #expect(store.move(occurrence, to: today.adding(days: 1), at: at(today, 11, 2)) == nil)
+        #expect(occurrence.state == .done)
+        #expect(occurrence.dayKey == today.key)
+    }
+
     @Test("Undo does nothing once the moved occurrence has been answered again")
     func undoAfterAnotherAnswer() throws {
         let task = store.add(draft("Permit"), at: at(today.adding(days: -1), 9, 0), today: today, through: horizon)

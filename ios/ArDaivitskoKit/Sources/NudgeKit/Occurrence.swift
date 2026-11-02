@@ -201,12 +201,7 @@ public struct Occurrence: Hashable, Sendable, Identifiable, Codable {
             next.doneAt = nil
         case .notToday:
             // Tomorrow counted from today, also for an overdue one; the deadline keeps its time.
-            next.state = .moved
-            next.day = Day(now, in: calendar).adding(days: 1)
-            next.movedAt = now
-            next.inProgressSince = nil
-            next.snoozedAt = nil
-            next.doneAt = nil
+            next = moved(to: Day(now, in: calendar).adding(days: 1), at: now)
         case .snooze:
             next.snoozedAt = now
         case .skip:
@@ -214,6 +209,25 @@ public struct Occurrence: Hashable, Sendable, Identifiable, Codable {
             next.inProgressSince = nil
             next.snoozedAt = nil
         }
+        return next
+    }
+
+    /// Move to…, in the app: the occurrence belongs to `day` from now on, keeping its deadline time,
+    /// and nudges there like an Open one, as after Not today. An answered occurrence, or the day it
+    /// already has, changes nothing.
+    public func moving(to day: Day, at now: Date) -> Occurrence {
+        guard !isAnswered, day != self.day else { return self }
+        return moved(to: day, at: now)
+    }
+
+    private func moved(to day: Day, at now: Date) -> Occurrence {
+        var next = self
+        next.state = .moved
+        next.day = day
+        next.movedAt = now
+        next.inProgressSince = nil
+        next.snoozedAt = nil
+        next.doneAt = nil
         return next
     }
 

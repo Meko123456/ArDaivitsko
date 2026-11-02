@@ -86,7 +86,7 @@ private struct OpenedOccurrence: Identifiable {
     let id: String
 }
 
-/// Offers Undo for a few seconds after Not today in the app, above the screen's bottom edge.
+/// Offers Undo for a few seconds after Not today or Move to… in the app, above the screen's bottom edge.
 struct UndoMoveOffer: ViewModifier {
     @Environment(Nudger.self) private var nudger
 
@@ -104,14 +104,14 @@ struct UndoMoveOffer: ViewModifier {
     }
 }
 
-/// "Pay rent moved to tomorrow", with Undo.
+/// "Pay rent moved to tomorrow" (or "to 6 Nov"), with Undo.
 struct UndoMoveBar: View {
     @Environment(Nudger.self) private var nudger
     let move: Nudger.Move
 
     var body: some View {
         HStack(spacing: 12) {
-            Text("\(move.title) moved to \(nudger.wording.relativeDay(move.day, today: nudger.today).lowercased())")
+            Text("\(move.title) moved to \(nudger.wording.relativeDay(move.day, today: nudger.today, midSentence: true))")
                 .font(.subheadline)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Button("Undo") {

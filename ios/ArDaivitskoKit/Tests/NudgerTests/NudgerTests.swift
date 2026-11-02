@@ -155,6 +155,49 @@ struct NudgerTests {
         #expect(!center.delivered.contains { $0.identifier == NudgeIdentifier.moved(rent.id) })
     }
 
+    @Test("Move to… in the app: its nudges move to the chosen day, the screen offers Undo, and Undo puts them back")
+    func moveToAndUndo() async throws {
+        let rent = try await addRent()
+        clock.now = at(today, 11, 0)
+        let moved = try #require(await nudger.move(ref: rent.id, to: today.adding(days: 2)))
+        #expect(moved.day == today.adding(days: 2))
+        // Only the new day's, as far as the 48-hour window reaches (10-30 11:00).
+        #expect(pendingTimes(of: rent) == ["10-30 10:00"])
+        let offer = try #require(nudger.lastMove)
+        #expect(offer.occurrenceID == rent.id)
+        #expect(offer.day == today.adding(days: 2))
+        // Moved in the app: the screen offers Undo, so no notification says so.
+        #expect(!center.delivered.contains { $0.identifier == NudgeIdentifier.moved(rent.id) })
+
+        clock.now = at(today, 11, 1)
+        #expect(await nudger.undoMove(occurrenceID: rent.id, movedAt: offer.movedAt))
+        #expect(nudger.lastMove == nil)
+        #expect(nudger.store.occurrence(rent.id)?.dayKey == today.key)
+        #expect(pendingTimes(of: rent).first == "10-28 13:00")
+    }
+
+    @Test("Move to… the day it already has changes nothing and offers no Undo")
+    func moveToItsOwnDay() async throws {
+        let rent = try await addRent()
+        clock.now = at(today, 11, 0)
+        let before = pendingTimes(of: rent)
+        #expect(await nudger.move(ref: rent.id, to: today) == nil)
+        #expect(nudger.lastMove == nil)
+        #expect(nudger.store.occurrence(rent.id)?.state == .open)
+        #expect(pendingTimes(of: rent) == before)
+    }
+
+    @Test("Move to… a day past the 48-hour window: its nudges are scheduled once the window reaches it")
+    func moveToBeyondTheWindow() async throws {
+        let rent = try await addRent()
+        clock.now = at(today, 11, 0)
+        _ = try #require(await nudger.move(ref: rent.id, to: today.adding(days: 4)))
+        #expect(pendingTimes(of: rent).isEmpty)
+        clock.now = at(today.adding(days: 3), 9, 0)
+        await nudger.refresh()
+        #expect(pendingTimes(of: rent).prefix(4) == ["11-01 10:00", "11-01 13:00", "11-01 16:00", "11-01 19:00"])
+    }
+
     @Test("Not today on a Can't-miss task's last day asks first, and moves only when confirmed")
     func lastDayAsksFirst() async throws {
         let bill = try await addRent(cantMiss: true)

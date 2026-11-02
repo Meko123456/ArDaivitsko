@@ -1,8 +1,8 @@
 import NudgeKit
 import XCTest
 
-/// Adding a task, and answering one in the app: Done, In progress, Not today and its Undo, and
-/// the question a Can't-miss task asks on its last day.
+/// Adding a task, and answering one in the app: Done, In progress, Not today and Move to… with
+/// their Undo, and the question a Can't-miss task asks on its last day.
 final class TaskUITests: ArDaivitskoUITestCase {
     private var noQuietHours: NudgeSettings {
         var settings = NudgeSettings.standard
@@ -105,6 +105,44 @@ final class TaskUITests: ArDaivitskoUITestCase {
         let moved = row("Renew the parking permit", in: app)
         XCTAssertTrue(moved.waitForExistence(timeout: 30))
         waitForValue(of: moved, containing: "Moved from")
+    }
+
+    @MainActor
+    func testMoveToPutsItOnAPickedDayAndUndoBringsItBack() throws {
+        let app = try launch(with: [Seed.Entry(title: "Renew the parking permit")], settings: noQuietHours)
+        let permit = row("Renew the parking permit", in: app)
+        tapWhenHittable(permit)
+        tapWhenHittable(app.buttons["Move to…"])
+        let sheet = app.navigationBars["Move to…"]
+        XCTAssertTrue(sheet.waitForExistence(timeout: 30))
+
+        // The calendar opens on tomorrow; the day after it is picked instead.
+        let target = try XCTUnwrap(Calendar.current.date(byAdding: .day, value: 2, to: .now))
+        var cell = dayCell(for: target, in: app)
+        if !cell.waitForExistence(timeout: 5) {
+            // Tomorrow is the month's last day: the day after is next month's first.
+            tapWhenHittable(app.datePickers.firstMatch.buttons.matching(NSPredicate(format: "label ==[c] 'Next Month'")).firstMatch)
+            cell = dayCell(for: target, in: app)
+        }
+        let labels = app.datePickers.firstMatch.buttons.allElementsBoundByIndex.map(\.label)
+        XCTAssertTrue(cell.waitForExistence(timeout: 10), "No day cell for \(target); the picker's buttons: \(labels)")
+        tapWhenHittable(cell)
+        tapWhenHittable(sheet.buttons["Move"])
+
+        // Gone from today, with Undo, which brings it back.
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.staticTexts["Nothing to answer today"].waitForExistence(timeout: 30))
+        tapWhenHittable(app.buttons["Undo moving Renew the parking permit"])
+        waitForValue(of: permit, containing: "Due by")
+    }
+
+    /// The graphical calendar's button for `date`'s day of the month, whatever order the locale
+    /// puts the weekday, day and month in.
+    private func dayCell(for date: Date, in app: XCUIApplication) -> XCUIElement {
+        let day = Calendar.current.component(.day, from: date)
+        let month = date.formatted(.dateTime.month(.wide))
+        let pattern = ".*\\b\(day)\\b.*\(month).*|.*\(month).*\\b\(day)\\b.*"
+        return app.datePickers.firstMatch.buttons.matching(NSPredicate(format: "label MATCHES %@", pattern)).firstMatch
     }
 
     @MainActor

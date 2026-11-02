@@ -14,6 +14,7 @@ struct TaskDetailView: View {
     let now: Date
     @State private var editor: EditorRequest?
     @State private var confirmingDelete = false
+    @State private var moving = false
 
     var body: some View {
         let snapshots = tasks.map(\.snapshot)
@@ -60,6 +61,13 @@ struct TaskDetailView: View {
 
             Section {
                 AnswerButtons(occurrence: occurrence, today: today)
+                if !occurrence.isAnswered, !occurrence.isQuiet(today: today) {
+                    Button {
+                        moving = true
+                    } label: {
+                        Label("Move to…", systemImage: "calendar")
+                    }
+                }
             } header: {
                 Text("Answer")
             } footer: {
@@ -104,6 +112,9 @@ struct TaskDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $editor) { request in
             TaskEditor(request: request)
+        }
+        .sheet(isPresented: $moving) {
+            MoveToSheet(occurrence: occurrence, today: today)
         }
         // An alert, not a confirmation dialog: its buttons are dependable under VoiceOver and tests.
         .alert("Delete \(occurrence.title)?", isPresented: $confirmingDelete) {

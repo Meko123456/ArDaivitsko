@@ -262,7 +262,25 @@ public final class Nudger {
         return answered
     }
 
-    /// Puts back what Not today moved, if nothing has happened to it since.
+    /// Move to…, in the app: the occurrence `ref` names moves to `day`, with the same Undo as Not
+    /// today. Returns nil when nothing moved.
+    @discardableResult
+    public func move(ref: String, to day: Day) async -> Occurrence? {
+        guard let model = store.occurrence(ref: ref) else {
+            log.error("No occurrence \(ref, privacy: .public) to move")
+            return nil
+        }
+        let now = now
+        guard let moved = store.move(model, to: day, at: now) else { return nil }
+        log.info("Moved \(moved.id, privacy: .public) to \(day.description, privacy: .public)")
+        alarms?.stop(occurrenceID: moved.id)
+        await scheduler.clear(occurrenceID: moved.id)
+        lastMove = Move(occurrenceID: moved.id, title: moved.title, movedAt: now, day: moved.day)
+        await refresh()
+        return moved
+    }
+
+    /// Puts back what Not today or Move to… moved, if nothing has happened to it since.
     @discardableResult
     public func undoMove(occurrenceID: String, movedAt: Date? = nil) async -> Bool {
         guard let model = store.occurrence(occurrenceID), store.undoMove(model, movedAt: movedAt) else { return false }

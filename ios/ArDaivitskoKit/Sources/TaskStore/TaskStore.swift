@@ -196,7 +196,20 @@ public final class TaskStore {
         return answered
     }
 
-    /// Puts back an occurrence Not today moved, if nothing has happened to it since.
+    /// Move to…: like Not today, to a day of one's choosing, and kept for Undo the same way. Returns
+    /// the moved occurrence, or nil when nothing moved (an answered one, or the day it already has).
+    @discardableResult
+    public func move(_ occurrence: OccurrenceModel, to day: Day, at now: Date) -> Occurrence? {
+        guard let value = occurrence.value else { return nil }
+        let moved = value.moving(to: day, at: now)
+        guard moved != value else { return nil }
+        occurrence.beforeMove = try? JSONEncoder().encode(value)
+        occurrence.apply(moved)
+        save()
+        return moved
+    }
+
+    /// Puts back an occurrence Not today or Move to… moved, if nothing has happened to it since.
     @discardableResult
     public func undoMove(_ occurrence: OccurrenceModel, movedAt: Date? = nil) -> Bool {
         guard occurrence.state == .moved,

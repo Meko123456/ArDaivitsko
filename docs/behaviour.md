@@ -110,7 +110,14 @@ A nudge that comes before the task's own day (the evening-before heads-up) offer
 progress.
 
 iOS shows all four on the notification. Android shows three buttons (Done, In progress, Not today);
-tapping the notification opens the task, with Snooze 1 hour and "Move to…" (pick a day).
+tapping the notification opens the task, with Snooze 1 hour.
+
+**Move to…**, on a task's screen in either app: pick a day, today or later. The picker opens on the
+day after the task's own (after today, when it's overdue). The occurrence moves there the way Not
+today moves it: same deadline time, nudging like an Open one, In progress cleared, with an Undo.
+It isn't offered for a Done or Skipped day, or a quiet earlier day of a repeating task, and it
+doesn't ask on a Can't-miss task's last day: picking the day is the decision. A moved day still
+counts by the day its repeat gave it (One nudge per task, above).
 
 ## Editing
 
