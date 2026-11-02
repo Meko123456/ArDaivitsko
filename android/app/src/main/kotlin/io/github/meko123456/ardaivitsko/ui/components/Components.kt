@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -114,9 +116,18 @@ fun TimePickerDialog(title: String, initial: LocalTime, is24Hour: Boolean, onDis
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DayPickerDialog(initial: LocalDate, onDismiss: () -> Unit, onPick: (LocalDate) -> Unit, confirmLabel: String = "OK") {
+fun DayPickerDialog(
+    initial: LocalDate,
+    onDismiss: () -> Unit,
+    onPick: (LocalDate) -> Unit,
+    confirmLabel: String = "OK",
+    earliest: LocalDate? = null,
+) {
     // The date picker counts in UTC midnights.
-    val state = rememberDatePickerState(initialSelectedDateMillis = initial.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
+    val state = rememberDatePickerState(
+        initialSelectedDateMillis = initial.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+        selectableDates = if (earliest == null) DatePickerDefaults.AllDates else FromDay(earliest),
+    )
     DatePickerDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
@@ -132,4 +143,14 @@ fun DayPickerDialog(initial: LocalDate, onDismiss: () -> Unit, onPick: (LocalDat
     ) {
         DatePicker(state = state)
     }
+}
+
+/** Only [first] and the days after it can be picked. */
+@OptIn(ExperimentalMaterial3Api::class)
+private class FromDay(private val first: LocalDate) : SelectableDates {
+    private val firstMillis = first.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+
+    override fun isSelectableDate(utcTimeMillis: Long): Boolean = utcTimeMillis >= firstMillis
+
+    override fun isSelectableYear(year: Int): Boolean = year >= first.year
 }

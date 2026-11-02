@@ -155,8 +155,11 @@ fun TaskScreen(viewModel: TaskViewModel, onBack: () -> Unit, onEdit: (Long) -> U
         )
     }
     if (picking) {
+        // From today on, opening on the day after the task's own (or after today, when it's overdue).
+        val today = state.today ?: LocalDate.now()
         DayPickerDialog(
-            initial = state.day ?: LocalDate.now(),
+            initial = maxOf(state.day ?: today, today).plusDays(1),
+            earliest = today,
             confirmLabel = "Move",
             onDismiss = { picking = false },
             onPick = { day ->

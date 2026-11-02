@@ -47,6 +47,8 @@ data class TaskState(
     val dueLine: String = "",
     val nextNudge: String? = null,
     val day: LocalDate? = null,
+    /** Today on the app's clock: Move to… offers it and the days after. */
+    val today: LocalDate? = null,
     val canMoveToTomorrow: Boolean = false,
     val canSnooze: Boolean = false,
     val canUndoMove: Boolean = false,
@@ -207,6 +209,7 @@ class TaskViewModel(
                 else -> texts.nextNudge(planner.next(item.occurrence, now), now)
             },
             day = item.day,
+            today = today,
             canMoveToTomorrow = !quiet && Answers.canMoveToTomorrow(item.status, today),
             canSnooze = !quiet && !item.isClosed && item.day <= today,
             canUndoMove = !quiet && item.state == OccurrenceState.MOVED && item.status.movedFrom != null,
