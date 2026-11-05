@@ -54,14 +54,14 @@ final class TaskUITests: ArDaivitskoUITestCase {
     @MainActor
     func testDoneLeavesNoNudgesPendingForThatTask() throws {
         let app = try launch(with: [Seed.Entry(title: "Pay rent"), Seed.Entry(title: "Call the bank")], settings: noQuietHours)
-        tapWhenHittable(app.buttons["Settings"])
+        tapWhenHittable(tab("Settings", in: app))
         let rentPending = app.staticTexts["pending.Pay rent"]
         scroll(to: rentPending, in: app)
         XCTAssertNotEqual(rentPending.label, "Pay rent: 0 pending")
-        tapWhenHittable(app.buttons["Today"])
+        tapWhenHittable(tab("Today", in: app))
         tapWhenHittable(app.buttons["Mark Pay rent done"])
         waitForValue(of: row("Pay rent", in: app), containing: "Done")
-        tapWhenHittable(app.buttons["Settings"])
+        tapWhenHittable(tab("Settings", in: app))
         scroll(to: app.buttons["Reload"], in: app)
         tapWhenHittable(app.buttons["Reload"])
         let none = NSPredicate(format: "label == 'Pay rent: 0 pending'")
@@ -95,7 +95,7 @@ final class TaskUITests: ArDaivitskoUITestCase {
         tapWhenHittable(permit)
         tapWhenHittable(app.buttons["Not Today"])
         app.navigationBars.buttons.element(boundBy: 0).tap()
-        tapWhenHittable(app.buttons["Calendar"])
+        tapWhenHittable(tab("Calendar", in: app))
         let marked = app.buttons.matching(NSPredicate(format: "value CONTAINS 'Tasks to answer'")).firstMatch
         if !marked.waitForExistence(timeout: 10) {
             // Today is the month's last day: tomorrow is next month's first.

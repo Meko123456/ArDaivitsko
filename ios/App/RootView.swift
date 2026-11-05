@@ -95,6 +95,7 @@ struct UndoMoveOffer: ViewModifier {
             .safeAreaInset(edge: .bottom) {
                 if let move = nudger.lastMove {
                     UndoMoveBar(move: move)
+                        .frame(maxWidth: 600)
                         .padding(.horizontal)
                         .padding(.bottom, 8)
                         .transition(.move(edge: .bottom).combined(with: .opacity))

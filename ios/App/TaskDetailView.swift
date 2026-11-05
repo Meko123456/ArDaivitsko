@@ -108,6 +108,7 @@ struct TaskDetailView: View {
                 }
             }
         }
+        .readableWidth()
         .navigationTitle(occurrence.title)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $editor) { request in

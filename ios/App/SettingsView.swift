@@ -24,6 +24,7 @@ struct SettingsView: View {
             PendingNudgesSection()
             #endif
         }
+        .readableWidth()
         .environment(\.calendar, calendar)
         .environment(\.timeZone, calendar.timeZone)
         .navigationTitle("Settings")

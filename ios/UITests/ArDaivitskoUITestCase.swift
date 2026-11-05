@@ -56,6 +56,15 @@ class ArDaivitskoUITestCase: XCTestCase {
         XCUIApplication(bundleIdentifier: "com.apple.springboard")
     }
 
+    /// A tab: Today, Calendar or Settings. On iPad the tabs float at the top and each is in the
+    /// accessibility tree twice, so `app.buttons["Calendar"]` matches two elements and is never
+    /// hittable; the first match by label is the one to tap. Today's detail screens also have a
+    /// back button labelled "Today", which this leaves out.
+    @MainActor
+    func tab(_ name: String, in app: XCUIApplication) -> XCUIElement {
+        app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != 'BackButton'", name)).firstMatch
+    }
+
     /// Taps once the element can take it: a tap made as soon as it exists can go nowhere.
     @MainActor
     func tapWhenHittable(_ element: XCUIElement, timeout: TimeInterval = 30, file: StaticString = #filePath, line: UInt = #line) {

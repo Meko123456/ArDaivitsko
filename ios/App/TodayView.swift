@@ -38,6 +38,7 @@ struct TodayView: View {
                 Text(nudger.wording.longDay(today))
             }
         }
+        .readableWidth()
         .navigationTitle("Today")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

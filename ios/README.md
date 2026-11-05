@@ -203,6 +203,15 @@ On an iPhone 17 simulator with iOS 26.5:
 - **Screens in light, dark and the largest text size (AX5).** This found the calendar's
   missing first week (colliding ids), now fixed. At AX5 the rows now stack, menus become
   lists, and the month grid stops growing while the day's list keeps full size.
+- **On an iPad** (the iPad Air 11-inch simulator, 5 November): the whole UI suite, and every
+  screen in portrait and landscape (`testScreens` with `ARDAIVITSKO_ORIENTATION=landscape`). The
+  tabs float at the top on iPad, and a landscape iPad stretched every list across about 1,180
+  points, a row's label and its value a thousand points apart; the lists now keep a readable
+  width (760 points, centred; nothing changes on an iPhone). A month and the day's list side by
+  side in landscape crashed in UIKit (a collection view invalidating its own layout while the tab
+  switched, the month being a lazy grid in a list row), so the calendar stays one list. Two UI
+  tests found nothing to tap on iPad: each tab is in the accessibility tree twice there, so
+  `app.buttons["Calendar"]` never resolves to one element; the tests tap tabs through `tab(_:in:)`.
 
 Not checked, or not working, in the simulator:
 
@@ -212,10 +221,11 @@ Not checked, or not working, in the simulator:
   Slide to stop works, and the final nudges and Deadline passed still come.
 - **Background App Refresh.** The simulator keeps no app refresh requests; the debugger's
   simulated launch found none to run.
-- A phone switched off at a nudge's time, a time zone change while closed, VoiceOver itself, and
-  iPad. The design for each: iOS delivers the pending ones, with catch-up for the rest; the
-  triggers are wall-clock; every button has a spoken label (checked in the accessibility tree);
-  the screens are lists.
+- A phone switched off at a nudge's time, a time zone change while closed, and VoiceOver itself.
+  The design for each: iOS delivers the pending ones, with catch-up for the rest; the triggers are
+  wall-clock; every button has a spoken label (checked in the accessibility tree).
+- iPad split view and Stage Manager's smaller windows: the lists follow the window's width, and
+  under 760 points nothing changes, but neither was run.
 - iOS 17 to 25. Built for them, run only on 26.5.
 
 ## Known gaps

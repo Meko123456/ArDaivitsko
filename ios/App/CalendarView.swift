@@ -49,6 +49,7 @@ struct CalendarView: View {
                 Text(nudger.wording.longDay(chosen))
             }
         }
+        .readableWidth()
         .navigationTitle("Calendar")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

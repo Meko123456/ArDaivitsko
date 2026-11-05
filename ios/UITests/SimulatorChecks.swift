@@ -47,7 +47,7 @@ final class SimulatorChecks: ArDaivitskoUITestCase {
 
         app.activate()
         waitForValue(of: row("Pay rent", in: app), containing: "Done")
-        tapWhenHittable(app.buttons["Settings"])
+        tapWhenHittable(tab("Settings", in: app))
         let pending = app.staticTexts["pending.Pay rent"]
         scroll(to: pending, in: app)
         XCTAssertEqual(pending.label, "Pay rent: 0 pending")
@@ -75,11 +75,11 @@ final class SimulatorChecks: ArDaivitskoUITestCase {
         allowPrompts(timeout: 5)
 
         // The planned alarm, at 23:00 for a 23:59 deadline, is with AlarmKit.
-        tapWhenHittable(app.buttons["Settings"])
+        tapWhenHittable(tab("Settings", in: app))
         let planned = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH '23:00' AND label CONTAINS 'Pay the credit card bill'")).firstMatch
         scroll(to: planned, in: app)
         save("alarm-scheduled")
-        tapWhenHittable(app.buttons["Today"])
+        tapWhenHittable(tab("Today", in: app))
 
         XCUIDevice.shared.perform(NSSelectorFromString("pressLockButton"))
         let alarmDone = springboard.buttons["Done"]
@@ -159,7 +159,7 @@ final class SimulatorChecks: ArDaivitskoUITestCase {
         // Moved by Not today, then put back by Undo.
         waitForValue(of: row("Renew the parking permit", in: app), containing: "Due by")
         save("after-answers")
-        tapWhenHittable(app.buttons["Settings"])
+        tapWhenHittable(tab("Settings", in: app))
         let pending = app.staticTexts["pending.Pay rent"]
         scroll(to: pending, in: app)
         XCTAssertEqual(pending.label, "Pay rent: 0 pending")
@@ -211,6 +211,12 @@ final class SimulatorChecks: ArDaivitskoUITestCase {
     @MainActor
     func testScreens() throws {
         let prefix = ProcessInfo.processInfo.environment["ARDAIVITSKO_SHOT_PREFIX"] ?? "screens"
+        // ARDAIVITSKO_ORIENTATION=landscape turns the device first (an iPad: the iPhone app is
+        // portrait only), and back afterwards.
+        if ProcessInfo.processInfo.environment["ARDAIVITSKO_ORIENTATION"] == "landscape" {
+            XCUIDevice.shared.orientation = .landscapeLeft
+        }
+        defer { XCUIDevice.shared.orientation = .portrait }
         var bill = NudgeRule.standard
         bill.cantMiss = true
         var early = NudgeRule.standard
@@ -247,13 +253,13 @@ final class SimulatorChecks: ArDaivitskoUITestCase {
         save("\(prefix)-editor-2")
         app.buttons["Cancel"].tap()
 
-        tapWhenHittable(app.buttons["Calendar"])
+        tapWhenHittable(tab("Calendar", in: app))
         XCTAssertTrue(app.buttons["Next month"].waitForExistence(timeout: 30))
         save("\(prefix)-calendar")
         app.swipeUp()
         save("\(prefix)-calendar-2")
 
-        tapWhenHittable(app.buttons["Settings"])
+        tapWhenHittable(tab("Settings", in: app))
         XCTAssertTrue(app.switches["Quiet hours"].waitForExistence(timeout: 30))
         save("\(prefix)-settings")
         app.swipeUp()
