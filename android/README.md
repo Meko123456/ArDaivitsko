@@ -173,6 +173,11 @@ I added tasks through the app as a user would, and moved the clock with
   while a later day nudges". Opened, one offered only Done and Skip. Skip took it off the list,
   and the calendar marked that day "all done" (hollow).
 - **Notifications are asked for when the first task is added**, not at launch.
+- **The widget picker's generated preview (5 November):** on Android 15+ the picker shows the
+  widget itself, drawn with made-up tasks (an overdue credit card bill, a call due by 18:00), each
+  with its Done. The app publishes it once per install. `setWidgetPreviews` is rate-limited: after
+  several reinstalls in an hour the call fails quietly and the picker keeps the plain preview
+  layout until the next launch after the limit resets, which is what an earlier check saw.
 - **Move to… (2 November):** on a task overdue since yesterday, the picker opened on tomorrow,
   with yesterday disabled and today selectable. Picking the 5th made it "Moved from Nov 1", due
   Nov 5, with "Moved to Nov 5" and Undo; its alarm went from today 13:00 to the 5th at 10:00.
@@ -202,7 +207,6 @@ Bugs these checks found, fixed in their own commits:
   transport.
 - Snooze was tested in ViewModel tests, not tapped on the emulator. The heads-up the evening
   before, daylight-saving days and monthly repeats were tested in JVM tests only.
-- The generated widget preview for Android 15+: the picker showed the plain preview layout.
 - Samsung's own battery lists ("Sleeping apps", "Deep sleeping apps") are separate from
   Android's battery optimization, which Settings now asks to be left out of (below). Not yet
   checked on a Samsung over days of real use.
