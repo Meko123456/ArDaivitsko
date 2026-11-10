@@ -139,6 +139,42 @@ Nudges are scheduled for their exact times and survive the app being closed, the
 restarting, the clock or time zone changing, and an app update. The app schedules everything again
 whenever it opens, as a safety net.
 
+## Saying a task, and Google Calendar (Android)
+
+Both are Android only for now, by Merab's choice; iOS has neither.
+
+**Saying a task.** The mic on Today, or the launcher's "Say a task" shortcut, opens a screen that
+listens with the phone's own speech recognizer, or takes a typed sentence. The sentence is read as a
+task by rules, not a model, so it works offline and the same way every time, in English:
+- repeats: "every day", "weekly", "every Monday" (from the next Monday), "every evening" (daily at
+  18:00);
+- days: "today", "tomorrow", "the day after tomorrow", "on Thursday" (the next one, today included),
+  "next Thursday" (after today), "next week", "in 3 days", "15 November", "on the 15th", "15.11";
+- times: "at 10", "at 10:30", "at 5 pm", "at ten", "noon", "midnight", "in the morning" (9:00),
+  "tonight" (20:00). An hour with no am or pm from 1 to 6 is the afternoon, 7 to 12 the morning.
+What's left is the title, without "remind me to" and the like at the start. The screen shows what
+it understood: the title, the day, the time (or none: by the day's end) and the repeat, each
+changeable by hand; a part changed by hand holds while the sentence is edited. Nudging starts and
+how often come from Settings' defaults, as for any new task.
+
+**Google Calendar**, through the phone's own calendar, so the app never talks to Google. In
+Settings, once calendar access is allowed:
+- "Add spoken tasks to" names a calendar. A spoken task then also goes there as an event, all-day
+  when it has no time, otherwise an hour from its time, repeating as the task does. The screen has
+  a switch to leave one out.
+- "Take tasks from" switches each calendar on or off. Its events, from yesterday to a year ahead,
+  become tasks here: one each, with the event's title and note, due at its time or by the day's end
+  for an all-day one, repeating when the event repeats every day, every week or every month (other
+  rules come once, on the first day); a repeating event starts here on its next day, not years back.
+  So an assistant that adds to the calendar ("add renew the parking permit on Thursday at 10 to
+  my Ar Daivitsko calendar") adds here too, within fifteen minutes in the background, or at once
+  when the app opens.
+- A one-off task and its event follow each other after that: Not today, Move to… and Undo move the
+  event; Done puts "✓ " in front of its title and Mark as not done takes it off; an event moved or
+  renamed in the calendar moves or renames the task. When both changed since they last agreed, the
+  task wins. A repeating task and its event share only the title. A deleted event leaves its task
+  (no longer linked); a deleted task leaves its event.
+
 ## Screens
 
 - **Today**: overdue first, then today's tasks, each with its state and next nudge.
@@ -146,7 +182,8 @@ whenever it opens, as a safety net.
   hollow when all done); a day shows its tasks.
 - **Add / edit a task**: the fields above.
 - **Settings**: quiet hours, defaults, and what the phone allows (notifications, exact alarms,
-  full-screen alerts), with a way to fix each.
+  full-screen alerts), with a way to fix each. On Android, the Google Calendar channel.
+- **Say a task** (Android): the sentence, what it was understood as, and the calendar switch.
 - **A Home Screen widget**: today's open tasks, overdue first, each with a Done button.
 
 ## Worked examples
