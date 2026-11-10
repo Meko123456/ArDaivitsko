@@ -58,3 +58,26 @@ data class OccurrenceWithTask(
 )
 
 data class LatestDay(val taskId: Long, val latestDay: LocalDate)
+
+/**
+ * A task that is also an event in the phone's calendar (CalendarContract), either made from the
+ * event or written out from a spoken task. The synced fields are what both sides last agreed on,
+ * so a change on one side is told from a change on the other.
+ */
+@Entity(
+    tableName = "calendar_links",
+    foreignKeys = [
+        ForeignKey(entity = TaskEntity::class, parentColumns = ["id"], childColumns = ["taskId"], onDelete = ForeignKey.CASCADE),
+    ],
+    indices = [Index(value = ["eventId"], unique = true)],
+)
+data class CalendarLinkEntity(
+    @PrimaryKey val taskId: Long,
+    val eventId: Long,
+    val calendarId: Long,
+    val syncedTitle: String,
+    val syncedDay: LocalDate,
+    /** The event's time, or null for an all-day event. */
+    val syncedTime: LocalTime?,
+    val syncedDone: Boolean,
+)

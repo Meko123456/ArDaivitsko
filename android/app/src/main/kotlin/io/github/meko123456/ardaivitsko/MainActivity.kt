@@ -18,6 +18,9 @@ class MainActivity : ComponentActivity() {
     /** A task to open, from a notification or the widget, until the screens have opened it. */
     private val openRequest = MutableStateFlow<OpenRequest?>(null)
 
+    /** The launcher's "Say a task" shortcut, until the quick-add screen has opened for it. */
+    private val sayTaskRequest = MutableStateFlow<Long?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -31,6 +34,8 @@ class MainActivity : ComponentActivity() {
                     container = appContainer,
                     openRequest = openRequest,
                     onOpened = { opened -> openRequest.compareAndSet(opened, null) },
+                    sayTaskRequest = sayTaskRequest,
+                    onSayTaskOpened = { request -> sayTaskRequest.compareAndSet(request, null) },
                 )
             }
         }
@@ -43,13 +48,19 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        // The safety net: everything is scheduled again whenever the app opens.
+        // The safety net: everything is scheduled again whenever the app opens, and the calendar
+        // channel looks for events that became tasks meanwhile.
         val container = appContainer
         container.appScope.launch { container.service.reconcile() }
+        container.calendarSync.requestSync()
     }
 
     private fun handle(intent: Intent?) {
         intent ?: return
+        if (intent.action == Intents.ACTION_SAY_TASK) {
+            sayTaskRequest.value = System.nanoTime()
+            return
+        }
         val occurrenceId = Intents.occurrenceId(intent) ?: return
         when (intent.action) {
             Intents.ACTION_OPEN -> openRequest.value = OpenRequest(occurrenceId, confirmMove = false)

@@ -70,57 +70,74 @@ class NudgeService(
 ) {
     private val mutex = Mutex()
 
+    /** Called after every answer, new task, edit and delete, once the change is saved: the calendar channel syncs. */
+    var onTasksChanged: () -> Unit = {}
+
     suspend fun reconcile() = mutex.withLock { reconcileLocked() }
 
     /** Applies [answer] to an occurrence and reschedules. Returns it as it is now, or null if it's gone. */
-    suspend fun answer(occurrenceId: Long, answer: Answer): OccurrenceItem? = mutex.withLock {
-        val item = store.occurrence(occurrenceId)
-        if (item == null) {
-            // A notification or widget row for something deleted since: clear it away.
+    suspend fun answer(occurrenceId: Long, answer: Answer): OccurrenceItem? {
+        val result = mutex.withLock {
+            val item = store.occurrence(occurrenceId)
+            if (item == null) {
+                // A notification or widget row for something deleted since: clear it away.
+                notifier.cancel(occurrenceId)
+                alarms.cancel(occurrenceId)
+                reconcileLocked()
+                return@withLock null
+            }
+            val now = time.now()
+            val today = now.atZone(time.zone()).toLocalDate()
+            val status = when (answer) {
+                Answer.Done -> Answers.done(item.status, now)
+                Answer.InProgress -> Answers.inProgress(item.status, now)
+                Answer.NotToday -> Answers.notToday(item.status, today)
+                Answer.Snooze -> Answers.snooze(item.status, now)
+                Answer.Skip -> Answers.skip(item.status, now)
+                is Answer.MoveTo -> Answers.moveTo(item.status, answer.day)
+                Answer.UndoMove -> Answers.undoMove(item.status)
+                Answer.Reopen -> Answers.reopen(item.status)
+            }
+            store.saveStatus(occurrenceId, status, answeredAt = now)
             notifier.cancel(occurrenceId)
-            alarms.cancel(occurrenceId)
+            if (status.state.isClosed) alarms.cancel(occurrenceId)
             reconcileLocked()
-            return@withLock null
+            store.occurrence(occurrenceId)
         }
-        val now = time.now()
-        val today = now.atZone(time.zone()).toLocalDate()
-        val status = when (answer) {
-            Answer.Done -> Answers.done(item.status, now)
-            Answer.InProgress -> Answers.inProgress(item.status, now)
-            Answer.NotToday -> Answers.notToday(item.status, today)
-            Answer.Snooze -> Answers.snooze(item.status, now)
-            Answer.Skip -> Answers.skip(item.status, now)
-            is Answer.MoveTo -> Answers.moveTo(item.status, answer.day)
-            Answer.UndoMove -> Answers.undoMove(item.status)
-            Answer.Reopen -> Answers.reopen(item.status)
-        }
-        store.saveStatus(occurrenceId, status, answeredAt = now)
-        notifier.cancel(occurrenceId)
-        if (status.state.isClosed) alarms.cancel(occurrenceId)
-        reconcileLocked()
-        store.occurrence(occurrenceId)
+        onTasksChanged()
+        return result
     }
 
     /** Saves a new task, created now, and schedules it. Returns its id. */
-    suspend fun addTask(task: Task): Long = mutex.withLock {
-        val now = time.now()
-        val today = now.atZone(time.zone()).toLocalDate()
-        val id = store.addTask(task.copy(createdAt = now), today, through = today.plusDays(DAYS_AHEAD))
-        reconcileLocked()
-        id
+    suspend fun addTask(task: Task): Long {
+        val id = mutex.withLock {
+            val now = time.now()
+            val today = now.atZone(time.zone()).toLocalDate()
+            val id = store.addTask(task.copy(createdAt = now), today, through = today.plusDays(DAYS_AHEAD))
+            reconcileLocked()
+            id
+        }
+        onTasksChanged()
+        return id
     }
 
-    suspend fun updateTask(task: Task) = mutex.withLock {
-        val now = time.now()
-        val today = now.atZone(time.zone()).toLocalDate()
-        val removed = store.updateTask(task, today, through = today.plusDays(DAYS_AHEAD), now = now)
-        removed.forEach(::forget)
-        reconcileLocked()
+    suspend fun updateTask(task: Task) {
+        mutex.withLock {
+            val now = time.now()
+            val today = now.atZone(time.zone()).toLocalDate()
+            val removed = store.updateTask(task, today, through = today.plusDays(DAYS_AHEAD), now = now)
+            removed.forEach(::forget)
+            reconcileLocked()
+        }
+        onTasksChanged()
     }
 
-    suspend fun deleteTask(taskId: Long) = mutex.withLock {
-        store.deleteTask(taskId).forEach(::forget)
-        reconcileLocked()
+    suspend fun deleteTask(taskId: Long) {
+        mutex.withLock {
+            store.deleteTask(taskId).forEach(::forget)
+            reconcileLocked()
+        }
+        onTasksChanged()
     }
 
     /** New quiet hours count from now: nothing they would have let through earlier fires as a catch-up. */

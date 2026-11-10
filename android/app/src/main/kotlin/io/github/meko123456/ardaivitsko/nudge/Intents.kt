@@ -25,6 +25,9 @@ object Intents {
     /** Sent to [RescheduleReceiver] after Android restores the app's data, on a new phone or a reinstall. */
     const val ACTION_RESTORED = "$PREFIX.RESTORED"
 
+    /** The launcher's "Say a task" shortcut: opens the app on the quick-add screen, listening. */
+    const val ACTION_SAY_TASK = "$PREFIX.SAY_TASK"
+
     /** One action per occurrence, so `dumpsys alarm` names the occurrence an alarm is for. */
     fun nudgeAction(occurrenceId: Long) = "$PREFIX.NUDGE/$occurrenceId"
 

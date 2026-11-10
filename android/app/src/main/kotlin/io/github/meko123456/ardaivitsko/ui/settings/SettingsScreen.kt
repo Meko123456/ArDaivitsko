@@ -11,13 +11,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,9 +31,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.meko123456.ardaivitsko.calendar.CalendarInfo
 import io.github.meko123456.ardaivitsko.core.NUDGE_INTERVALS
 import io.github.meko123456.ardaivitsko.ui.components.LocalFormats
 import io.github.meko123456.ardaivitsko.ui.components.PickerRow
@@ -49,10 +56,12 @@ fun SettingsScreen(
     onFixExactAlarms: () -> Unit,
     onFixFullScreen: () -> Unit,
     onFixBattery: () -> Unit,
+    onFixCalendar: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val formats = LocalFormats.current
     var picking by rememberSaveable { mutableStateOf<SettingsPicker?>(null) }
+    var choosingCalendar by rememberSaveable { mutableStateOf(false) }
     LifecycleResumeEffect(viewModel) {
         viewModel.refreshAbilities()
         onPauseOrDispose { }
@@ -81,6 +90,44 @@ fun SettingsScreen(
                         selected = settings.defaults.intervalHours == hours,
                         onClick = { viewModel.setDefaultInterval(hours) },
                         label = { Text(intervalLabel(hours)) },
+                    )
+                }
+            }
+
+            SectionHeader("Google Calendar")
+            Text(
+                "A task you say can also go into Google Calendar, and the events of the calendars you choose " +
+                    "become tasks here, so an assistant that adds to your calendar adds here too. Done and a move go back to the event.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+            if (!state.abilities.calendar) {
+                AbilityRow(
+                    title = "Calendar access",
+                    allowedText = "Allowed",
+                    blockedText = "Off: the calendar can't be read or written.",
+                    allowed = false,
+                    fixLabel = "Allow",
+                    onFix = onFixCalendar,
+                )
+            } else if (state.calendars.isEmpty()) {
+                Text(
+                    "No calendars on this phone. Add a Google account with Calendar on in the phone's settings.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(16.dp),
+                )
+            } else {
+                val writeCalendar = state.calendars.firstOrNull { it.id == settings.calendar.writeCalendarId }
+                PickerRow("Add spoken tasks to", writeCalendar?.name ?: "Nowhere", onClick = { choosingCalendar = true })
+                Text("Take tasks from", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                state.calendars.forEach { calendar ->
+                    SwitchRow(
+                        label = calendar.name,
+                        supporting = calendar.account.takeIf { it.isNotBlank() && it != calendar.name },
+                        checked = calendar.id in settings.calendar.watchedCalendarIds,
+                        onCheckedChange = { on -> viewModel.setWatched(calendar.id, on) },
                     )
                 }
             }
@@ -144,6 +191,17 @@ fun SettingsScreen(
         SettingsPicker.DEFAULT_DEADLINE -> settings.defaults.deadline
         null -> null
     }
+    if (choosingCalendar) {
+        CalendarChoiceDialog(
+            calendars = state.calendars.filter { it.writable },
+            chosen = settings.calendar.writeCalendarId,
+            onDismiss = { choosingCalendar = false },
+            onChoose = { id ->
+                choosingCalendar = false
+                viewModel.setWriteCalendar(id)
+            },
+        )
+    }
     if (pickerTitle != null && current != null) {
         TimePickerDialog(
             title = pickerTitle,
@@ -178,6 +236,41 @@ private fun AbilityRow(title: String, allowedText: String, blockedText: String, 
         if (!allowed) {
             Spacer(Modifier.width(12.dp))
             FilledTonalButton(onClick = onFix) { Text(fixLabel) }
+        }
+    }
+}
+
+/** "Add spoken tasks to": one of the calendars the app may write to, or nowhere. */
+@Composable
+private fun CalendarChoiceDialog(calendars: List<CalendarInfo>, chosen: Long?, onDismiss: () -> Unit, onChoose: (Long?) -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add spoken tasks to") },
+        text = {
+            Column(Modifier.selectableGroup().verticalScroll(rememberScrollState())) {
+                CalendarChoice("Nowhere", null, selected = chosen == null) { onChoose(null) }
+                calendars.forEach { calendar ->
+                    CalendarChoice(calendar.name, calendar.account.takeIf { it.isNotBlank() && it != calendar.name }, selected = chosen == calendar.id) { onChoose(calendar.id) }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun CalendarChoice(name: String, account: String?, selected: Boolean, onSelect: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onSelect)
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = null)
+        Column(Modifier.padding(start = 12.dp)) {
+            Text(name, style = MaterialTheme.typography.bodyLarge)
+            if (account != null) Text(account, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

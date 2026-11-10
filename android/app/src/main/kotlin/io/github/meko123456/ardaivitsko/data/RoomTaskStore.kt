@@ -34,6 +34,11 @@ class RoomTaskStore(private val database: AppDatabase) : TaskStore {
 
     override suspend fun task(id: Long): Task? = dao.task(id)?.toTask()
 
+    override suspend fun occurrencesOf(taskId: Long): List<OccurrenceItem> {
+        val task = dao.task(taskId) ?: return emptyList()
+        return dao.occurrencesOf(taskId).sortedBy { it.day }.map { OccurrenceWithTask(it, task).toItem() }
+    }
+
     override suspend fun undone(): List<OccurrenceItem> = dao.undone().map { it.toItem() }
 
     override suspend fun latestDays(today: LocalDate): Map<Long, LocalDate> =

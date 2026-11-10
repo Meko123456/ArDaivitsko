@@ -57,6 +57,9 @@ interface TaskStore {
 
     suspend fun task(id: Long): Task?
 
+    /** Every occurrence of one task, answered or not, by day. */
+    suspend fun occurrencesOf(taskId: Long): List<OccurrenceItem>
+
     /** Every occurrence that isn't done or skipped, for scheduling. */
     suspend fun undone(): List<OccurrenceItem>
 

@@ -6,7 +6,9 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import io.github.meko123456.ardaivitsko.core.NUDGE_INTERVALS
 import io.github.meko123456.ardaivitsko.core.NudgeSettings
 import io.github.meko123456.ardaivitsko.core.QuietHours
@@ -16,11 +18,24 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.LocalTime
 
-/** Quiet hours (default 22:00 to 08:00, and they can be off) and what a new task starts with. */
+/**
+ * The Google Calendar channel: the calendar a spoken task also goes into (none by default), and the
+ * calendars whose events become tasks here. Both are ids from the phone's calendar provider.
+ */
+data class CalendarSettings(
+    val writeCalendarId: Long? = null,
+    val watchedCalendarIds: Set<Long> = emptySet(),
+) {
+    /** Anything to sync at all. */
+    val active: Boolean get() = writeCalendarId != null || watchedCalendarIds.isNotEmpty()
+}
+
+/** Quiet hours (default 22:00 to 08:00, and they can be off), what a new task starts with, and the calendar channel. */
 data class AppSettings(
     val quietHoursOn: Boolean = true,
     val quietHours: QuietHours = QuietHours.DEFAULT,
     val defaults: TaskDefaults = TaskDefaults(),
+    val calendar: CalendarSettings = CalendarSettings(),
 ) {
     val nudgeSettings: NudgeSettings get() = NudgeSettings(quietHours.takeIf { quietHoursOn })
 }
@@ -57,6 +72,10 @@ class DataStoreSettings(private val dataStore: DataStore<Preferences>) : Setting
                 startTime = time(DEFAULT_START, fallback.defaults.startTime),
                 intervalHours = this[DEFAULT_INTERVAL]?.takeIf { it in NUDGE_INTERVALS } ?: fallback.defaults.intervalHours,
             ),
+            calendar = CalendarSettings(
+                writeCalendarId = this[CALENDAR_WRITE],
+                watchedCalendarIds = this[CALENDAR_WATCHED]?.mapNotNull { it.toLongOrNull() }?.toSet() ?: emptySet(),
+            ),
         )
     }
 
@@ -67,6 +86,8 @@ class DataStoreSettings(private val dataStore: DataStore<Preferences>) : Setting
         this[DEFAULT_DEADLINE] = settings.defaults.deadline.toString()
         this[DEFAULT_START] = settings.defaults.startTime.toString()
         this[DEFAULT_INTERVAL] = settings.defaults.intervalHours
+        settings.calendar.writeCalendarId?.let { this[CALENDAR_WRITE] = it } ?: remove(CALENDAR_WRITE)
+        this[CALENDAR_WATCHED] = settings.calendar.watchedCalendarIds.map { it.toString() }.toSet()
     }
 
     private companion object {
@@ -76,5 +97,7 @@ class DataStoreSettings(private val dataStore: DataStore<Preferences>) : Setting
         val DEFAULT_DEADLINE = stringPreferencesKey("default_deadline")
         val DEFAULT_START = stringPreferencesKey("default_start")
         val DEFAULT_INTERVAL = intPreferencesKey("default_interval_hours")
+        val CALENDAR_WRITE = longPreferencesKey("calendar_write_id")
+        val CALENDAR_WATCHED = stringSetPreferencesKey("calendar_watched_ids")
     }
 }

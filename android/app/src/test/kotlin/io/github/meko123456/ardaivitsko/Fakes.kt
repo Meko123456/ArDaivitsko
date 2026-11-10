@@ -1,5 +1,13 @@
 package io.github.meko123456.ardaivitsko
 
+import io.github.meko123456.ardaivitsko.calendar.CalendarEvent
+import io.github.meko123456.ardaivitsko.calendar.CalendarInfo
+import io.github.meko123456.ardaivitsko.calendar.CalendarLink
+import io.github.meko123456.ardaivitsko.calendar.CalendarLinks
+import io.github.meko123456.ardaivitsko.calendar.CalendarProvider
+import io.github.meko123456.ardaivitsko.calendar.CalendarSync
+import io.github.meko123456.ardaivitsko.calendar.EventDraft
+import io.github.meko123456.ardaivitsko.calendar.EventMapping
 import io.github.meko123456.ardaivitsko.core.Nudge
 import io.github.meko123456.ardaivitsko.core.NudgeKind
 import io.github.meko123456.ardaivitsko.core.OccurrenceState
@@ -17,6 +25,8 @@ import io.github.meko123456.ardaivitsko.nudge.NudgeNotifier
 import io.github.meko123456.ardaivitsko.nudge.NudgeService
 import io.github.meko123456.ardaivitsko.time.TextFormats
 import io.github.meko123456.ardaivitsko.time.TimeSource
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -29,6 +39,7 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.YearMonth
 import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -137,6 +148,8 @@ class FakeTaskStore : TaskStore {
 
     override suspend fun task(id: Long) = tasks.value[id]?.task
 
+    override suspend fun occurrencesOf(taskId: Long) = items.first().filter { it.task.id == taskId }
+
     override suspend fun undone() = items.first().filter { !it.isClosed }
 
     override suspend fun latestDays(today: LocalDate): Map<Long, LocalDate> = latestOf(rows.value.values, today)
@@ -236,6 +249,67 @@ class FakeTaskStore : TaskStore {
         status.state == OccurrenceState.OPEN && status.inProgressSince == null && status.snoozedAt == null && status.movedFrom == null && status.doneAt == null
 }
 
+/** The phone's calendar, as a map of events. Dates and times are read the way the real provider gives them. */
+class FakeCalendarProvider(var access: Boolean = true) : CalendarProvider {
+    val calendars = mutableListOf<CalendarInfo>()
+    val events = mutableMapOf<Long, CalendarEvent>()
+    val updates = mutableListOf<Long>()
+    private var nextId = 100L
+
+    override fun hasAccess() = access
+
+    override fun calendars() = calendars.toList()
+
+    override fun events(calendarIds: Set<Long>, from: Instant, to: Instant) =
+        events.values.filter { it.calendarId in calendarIds && (it.rrule != null || (it.start >= from && it.start < to)) }.sortedBy { it.start }
+
+    override fun event(id: Long) = events[id]
+
+    override fun insert(calendarId: Long, draft: EventDraft, zone: ZoneId): Long? {
+        val id = nextId++
+        events[id] = draft.toEvent(id, calendarId, zone)
+        return id
+    }
+
+    override fun update(id: Long, draft: EventDraft, zone: ZoneId): Boolean {
+        val old = events[id] ?: return false
+        events[id] = draft.toEvent(id, old.calendarId, zone)
+        updates += id
+        return true
+    }
+
+    /** Test setup: an event as Google Calendar would hold it. Returns its id. */
+    fun put(calendarId: Long, title: String, day: LocalDate, time: LocalTime? = null, rrule: String? = null, note: String = "", zone: ZoneId = TBILISI): Long {
+        val id = nextId++
+        events[id] = CalendarEvent(id, calendarId, title, note, startOf(day, time, zone), allDay = time == null, rrule = rrule)
+        return id
+    }
+
+    private fun EventDraft.toEvent(id: Long, calendarId: Long, zone: ZoneId) =
+        CalendarEvent(id, calendarId, title, note, startOf(day, time, zone), allDay = time == null, rrule = EventMapping.rrule(repeat, day))
+
+    private fun startOf(day: LocalDate, time: LocalTime?, zone: ZoneId): Instant =
+        if (time == null) day.atStartOfDay(ZoneOffset.UTC).toInstant() else day.atTime(time).atZone(zone).toInstant()
+}
+
+class FakeCalendarLinks : CalendarLinks {
+    val links = mutableMapOf<Long, CalendarLink>()
+
+    override suspend fun all() = links.values.sortedBy { it.taskId }
+
+    override suspend fun forTask(taskId: Long) = links[taskId]
+
+    override suspend fun save(link: CalendarLink) {
+        links[link.taskId] = link
+    }
+
+    override suspend fun remove(taskId: Long) {
+        links.remove(taskId)
+    }
+
+    override suspend fun clear() = links.clear()
+}
+
 /** A NudgeService over fakes, with everything a test wants to look at. */
 class Harness(now: Instant, settings: AppSettings = AppSettings()) {
     val time = FakeTime(now)
@@ -246,6 +320,12 @@ class Harness(now: Instant, settings: AppSettings = AppSettings()) {
     var widgetRefreshes = 0
     val formats = FixedFormats()
     val service = NudgeService(store, this.settings, time, notifier, alarms) { widgetRefreshes++ }
+    val provider = FakeCalendarProvider()
+    val links = FakeCalendarLinks()
+
+    /** Whether the background calendar check is on, as last set. */
+    var periodic: Boolean? = null
+    val calendar = CalendarSync(store, service, this.settings, provider, links, time, CoroutineScope(Dispatchers.Unconfined)) { periodic = it }
 
     suspend fun add(task: Task): Long {
         service.addTask(task)

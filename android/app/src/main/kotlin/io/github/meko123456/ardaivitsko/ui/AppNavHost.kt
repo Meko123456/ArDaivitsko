@@ -36,12 +36,15 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import io.github.meko123456.ardaivitsko.AppContainer
+import io.github.meko123456.ardaivitsko.calendar.AndroidCalendarProvider
 import io.github.meko123456.ardaivitsko.ui.calendar.CalendarScreen
 import io.github.meko123456.ardaivitsko.ui.calendar.CalendarViewModel
 import io.github.meko123456.ardaivitsko.ui.components.Formats
 import io.github.meko123456.ardaivitsko.ui.components.LocalFormats
 import io.github.meko123456.ardaivitsko.ui.edit.EditTaskScreen
 import io.github.meko123456.ardaivitsko.ui.edit.EditTaskViewModel
+import io.github.meko123456.ardaivitsko.ui.quickadd.QuickAddScreen
+import io.github.meko123456.ardaivitsko.ui.quickadd.QuickAddViewModel
 import io.github.meko123456.ardaivitsko.ui.settings.SettingsScreen
 import io.github.meko123456.ardaivitsko.ui.settings.SettingsViewModel
 import io.github.meko123456.ardaivitsko.ui.task.TaskScreen
@@ -64,6 +67,9 @@ import java.time.LocalDate
 /** A new task when [taskId] is 0, on [day] (ISO) if given. */
 @Serializable data class EditRoute(val taskId: Long = 0L, val day: String? = null)
 
+/** Say or type a task; [listen] starts the phone's speech recognizer at once. */
+@Serializable data class QuickAddRoute(val listen: Boolean = false)
+
 /** A task to open from a notification or the widget. Each tap is its own request, even for the same task. */
 data class OpenRequest(val occurrenceId: Long, val confirmMove: Boolean, val serial: Long = System.nanoTime())
 
@@ -74,7 +80,13 @@ private enum class TopLevel(val label: String, val icon: ImageVector, val route:
 }
 
 @Composable
-fun AppNavHost(container: AppContainer, openRequest: StateFlow<OpenRequest?>, onOpened: (OpenRequest) -> Unit) {
+fun AppNavHost(
+    container: AppContainer,
+    openRequest: StateFlow<OpenRequest?>,
+    onOpened: (OpenRequest) -> Unit,
+    sayTaskRequest: StateFlow<Long?>,
+    onSayTaskOpened: (Long) -> Unit,
+) {
     val navController = rememberNavController()
     val context = LocalContext.current
     val request by openRequest.collectAsStateWithLifecycle()
@@ -82,6 +94,12 @@ fun AppNavHost(container: AppContainer, openRequest: StateFlow<OpenRequest?>, on
         val open = request ?: return@LaunchedEffect
         navController.navigate(TaskRoute(open.occurrenceId, open.confirmMove)) { launchSingleTop = true }
         onOpened(open)
+    }
+    val sayTask by sayTaskRequest.collectAsStateWithLifecycle()
+    LaunchedEffect(sayTask) {
+        val say = sayTask ?: return@LaunchedEffect
+        navController.navigate(QuickAddRoute(listen = true)) { launchSingleTop = true }
+        onSayTaskOpened(say)
     }
 
     // Read again on every resume: the 12/24-hour setting and notification access change outside the app.
@@ -109,6 +127,20 @@ fun AppNavHost(container: AppContainer, openRequest: StateFlow<OpenRequest?>, on
             context.openSettings(container.abilities.notificationSettings())
         }
     }
+    // Both calendar permissions at once (one prompt). Refused twice, Android stops asking.
+    val calendarPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
+        val activity = context as? Activity
+        val refused = granted.values.any { !it }
+        if (refused && activity != null && !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.READ_CALENDAR)) {
+            context.openSettings(container.abilities.appDetails())
+        }
+        if (!refused) container.calendarSync.requestSync()
+    }
+    val fixCalendar = { calendarPermission.launch(AndroidCalendarProvider.PERMISSIONS) }
+    // A first task asks for notifications; nothing nudges without them.
+    val askForNotifications = {
+        if (container.abilities.needsNotificationPermission()) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
 
     CompositionLocalProvider(LocalFormats provides Formats(container.formats, resumes)) {
         NavHost(navController = navController, startDestination = TodayRoute) {
@@ -121,6 +153,7 @@ fun AppNavHost(container: AppContainer, openRequest: StateFlow<OpenRequest?>, on
                     bottomBar = { TopLevelBar(TopLevel.TODAY, navController) },
                     onOpen = { navController.navigate(TaskRoute(it)) },
                     onAdd = { navController.navigate(EditRoute()) },
+                    onSay = { navController.navigate(QuickAddRoute(listen = true)) },
                     onFixNotifications = fixNotifications,
                 )
             }
@@ -135,13 +168,16 @@ fun AppNavHost(container: AppContainer, openRequest: StateFlow<OpenRequest?>, on
             }
             composable<SettingsRoute> {
                 SettingsScreen(
-                    viewModel = viewModel { SettingsViewModel(container.settings, container.service, container.abilities::current) },
+                    viewModel = viewModel {
+                        SettingsViewModel(container.settings, container.service, container.abilities::current, container.calendarProvider, container.calendarSync)
+                    },
                     versionName = context.versionName(),
                     bottomBar = { TopLevelBar(TopLevel.SETTINGS, navController) },
                     onFixNotifications = fixNotifications,
                     onFixExactAlarms = { context.openSettings(container.abilities.exactAlarmSettings()) },
                     onFixFullScreen = { context.openSettings(container.abilities.fullScreenSettings()) },
                     onFixBattery = { context.openSettings(container.abilities.batterySettings()) },
+                    onFixCalendar = fixCalendar,
                 )
             }
             composable<TaskRoute> { entry ->
@@ -181,8 +217,30 @@ fun AppNavHost(container: AppContainer, openRequest: StateFlow<OpenRequest?>, on
                     onSaved = { added ->
                         navController.backOrToday()
                         // Notifications are asked for when the first task is added, not at launch.
-                        if (added && container.abilities.needsNotificationPermission()) {
-                            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        if (added) askForNotifications()
+                    },
+                )
+            }
+            composable<QuickAddRoute> { entry ->
+                val route = entry.toRoute<QuickAddRoute>()
+                QuickAddScreen(
+                    viewModel = viewModel {
+                        QuickAddViewModel(
+                            handle = createSavedStateHandle(),
+                            listen = route.listen,
+                            service = container.service,
+                            settings = container.settings,
+                            time = container.time,
+                            calendarSync = container.calendarSync,
+                            provider = container.calendarProvider,
+                        )
+                    },
+                    onClose = { navController.backOrToday() },
+                    onAdded = { title, inCalendar ->
+                        navController.backOrToday()
+                        askForNotifications()
+                        if (inCalendar == false) {
+                            android.widget.Toast.makeText(context, "“$title” is added here, but Google Calendar refused it.", android.widget.Toast.LENGTH_LONG).show()
                         }
                     },
                 )

@@ -6,6 +6,8 @@ import io.github.meko123456.ardaivitsko.at
 import io.github.meko123456.ardaivitsko.keepCollecting
 import io.github.meko123456.ardaivitsko.nudge.Abilities
 import io.github.meko123456.ardaivitsko.task
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import java.time.LocalTime
@@ -14,16 +16,20 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class SettingsViewModelTest {
 
     @get:Rule val main = MainDispatcherRule()
+
+    private fun Harness.viewModel(abilities: () -> Abilities) =
+        SettingsViewModel(settings, service, abilities, provider, calendar, io = UnconfinedTestDispatcher())
 
     @Test
     fun `quiet hours move the next nudge and fire nothing held back`() = runTest {
         val h = Harness(at("2026-10-29 21:00"))
         val id = h.add(task())
         h.advanceTo("2026-10-29 23:00")
-        val vm = SettingsViewModel(h.settings, h.service) { Abilities(notifications = true, exactAlarms = true, fullScreen = true, batteryUnrestricted = true) }
+        val vm = h.viewModel { Abilities(notifications = true, exactAlarms = true, fullScreen = true, batteryUnrestricted = true) }
         keepCollecting(vm.state)
 
         vm.setQuietHoursOn(false)
@@ -41,7 +47,7 @@ class SettingsViewModelTest {
     @Test
     fun `defaults for new tasks are saved`() = runTest {
         val h = Harness(at("2026-10-29 09:00"))
-        val vm = SettingsViewModel(h.settings, h.service) { Abilities(notifications = true, exactAlarms = true, fullScreen = true, batteryUnrestricted = true) }
+        val vm = h.viewModel { Abilities(notifications = true, exactAlarms = true, fullScreen = true, batteryUnrestricted = true) }
         keepCollecting(vm.state)
 
         vm.setDefaultInterval(2)
@@ -58,7 +64,7 @@ class SettingsViewModelTest {
     fun `what the phone allows is read again on resume`() = runTest {
         val h = Harness(at("2026-10-29 09:00"))
         var allowed = Abilities(notifications = false, exactAlarms = true, fullScreen = false, batteryUnrestricted = false)
-        val vm = SettingsViewModel(h.settings, h.service) { allowed }
+        val vm = h.viewModel { allowed }
         keepCollecting(vm.state)
 
         assertFalse(vm.state.value.abilities.notifications)

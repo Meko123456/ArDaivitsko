@@ -44,11 +44,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.meko123456.ardaivitsko.R
 import io.github.meko123456.ardaivitsko.core.OccurrenceState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -59,6 +61,7 @@ fun TodayScreen(
     bottomBar: @Composable () -> Unit,
     onOpen: (Long) -> Unit,
     onAdd: () -> Unit,
+    onSay: () -> Unit,
     onFixNotifications: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -98,6 +101,9 @@ fun TodayScreen(
                             Text(state.date, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
+                },
+                actions = {
+                    IconButton(onClick = onSay) { Icon(painterResource(R.drawable.ic_mic), contentDescription = "Say a task") }
                 },
             )
         },

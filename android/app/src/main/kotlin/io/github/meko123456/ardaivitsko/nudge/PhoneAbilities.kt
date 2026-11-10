@@ -13,6 +13,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import io.github.meko123456.ardaivitsko.calendar.AndroidCalendarProvider
 
 /** What the phone lets the app do, as Settings shows it. */
 data class Abilities(
@@ -25,6 +26,8 @@ data class Abilities(
      * a sleeping app's alarms can come late or not at all; a reminder that's late is no reminder.
      */
     val batteryUnrestricted: Boolean,
+    /** Reading and writing the phone's calendar, for the Google Calendar channel. */
+    val calendar: Boolean = false,
 )
 
 /** Reads [Abilities] and builds the intents that open the right settings page to fix each. */
@@ -38,7 +41,12 @@ class PhoneAbilities(private val context: Context) {
             context.getSystemService(NotificationManager::class.java)?.canUseFullScreenIntent() == true,
         batteryUnrestricted = context.getSystemService(PowerManager::class.java)
             ?.isIgnoringBatteryOptimizations(context.packageName) == true,
+        calendar = calendarAllowed(),
     )
+
+    fun calendarAllowed(): Boolean = AndroidCalendarProvider.PERMISSIONS.all {
+        ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+    }
 
     fun notificationsAllowed(): Boolean =
         NotificationManagerCompat.from(context).areNotificationsEnabled() &&

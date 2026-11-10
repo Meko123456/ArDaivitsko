@@ -9,6 +9,12 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.preferencesDataStoreFile
+import io.github.meko123456.ardaivitsko.calendar.AndroidCalendarProvider
+import io.github.meko123456.ardaivitsko.calendar.CalendarLinks
+import io.github.meko123456.ardaivitsko.calendar.CalendarProvider
+import io.github.meko123456.ardaivitsko.calendar.CalendarSync
+import io.github.meko123456.ardaivitsko.calendar.CalendarSyncWorker
+import io.github.meko123456.ardaivitsko.calendar.RoomCalendarLinks
 import io.github.meko123456.ardaivitsko.data.DataStoreSettings
 import io.github.meko123456.ardaivitsko.data.RoomTaskStore
 import io.github.meko123456.ardaivitsko.data.SettingsStore
@@ -50,6 +56,15 @@ class AppContainer(
     val alarms = AndroidAlarms(context)
     val abilities = PhoneAbilities(context)
     val service = NudgeService(store, settings, time, notifier, alarms, GlanceWidgetRefresher(context, appScope))
+    val calendarProvider: CalendarProvider = AndroidCalendarProvider(context)
+    val calendarLinks: CalendarLinks = RoomCalendarLinks(database.calendarLinkDao())
+    val calendarSync = CalendarSync(store, service, settings, calendarProvider, calendarLinks, time, appScope) { on ->
+        CalendarSyncWorker.schedule(context, on)
+    }
+
+    init {
+        service.onTasksChanged = calendarSync::requestSync
+    }
 
     /**
      * Runs [block] for a receiver after onReceive returns, and lets the system know when it's done.

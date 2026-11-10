@@ -52,6 +52,11 @@ class RescheduleReceiver : BroadcastReceiver() {
             else -> return
         }
         val container = context.appContainer
-        container.runAsync(goAsync()) { container.service.reconcile() }
+        container.runAsync(goAsync()) {
+            // Restored onto another phone, the calendar links name that phone's events: they're dropped,
+            // and a watched calendar's events come back as linked tasks only if they're new here.
+            if (intent.action == Intents.ACTION_RESTORED) container.calendarSync.clearLinks()
+            container.service.reconcile()
+        }
     }
 }

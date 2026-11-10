@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press the icon: say a task without opening Today first. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="say_task"
+        android:icon="@drawable/ic_shortcut_say"
+        android:shortcutShortLabel="@string/shortcut_say_task_short"
+        android:shortcutLongLabel="@string/shortcut_say_task_long">
+        <intent
+            android:action="io.github.meko123456.ardaivitsko.action.SAY_TASK"
+            android:targetClass="io.github.meko123456.ardaivitsko.MainActivity"
+            android:targetPackage="io.github.meko123456.ardaivitsko" />
+    </shortcut>
+</shortcuts>

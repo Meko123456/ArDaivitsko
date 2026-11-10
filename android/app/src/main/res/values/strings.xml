@@ -20,6 +20,9 @@
     <string name="moved_to_tomorrow">Moved to tomorrow</string>
     <string name="moved_to_day">Moved to %1$s</string>
 
+    <string name="shortcut_say_task_short">Say a task</string>
+    <string name="shortcut_say_task_long">Say a task to add</string>
+
     <string name="widget_name">Today</string>
     <string name="widget_description">Today\'s open tasks, overdue first, each with a Done button</string>
     <string name="widget_preview_title">Today</string>

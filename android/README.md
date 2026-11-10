@@ -12,9 +12,9 @@ the same document with no shared code.
 | --- | --- | --- | --- |
 | ![Today in dark](docs/screenshots/today-dark.png) | ![Today at font scale 2](docs/screenshots/today-large-text.png) | ![Moved to tomorrow, Undo](docs/screenshots/not-today-undo.png) | ![Calendar](docs/screenshots/calendar.png) |
 
-| Quiet earlier days | A quiet day: Done or Skip |
-| --- | --- |
-| ![A daily task's missed days, quiet under Overdue](docs/screenshots/quiet-days.png) | ![A quiet day offers Done and Skip](docs/screenshots/quiet-day.png) |
+| Quiet earlier days | A quiet day: Done or Skip | Say a task | Google Calendar |
+| --- | --- | --- | --- |
+| ![A daily task's missed days, quiet under Overdue](docs/screenshots/quiet-days.png) | ![A quiet day offers Done and Skip](docs/screenshots/quiet-day.png) | ![A typed sentence, understood as a task](docs/screenshots/say-a-task.png) | ![The Google Calendar section of Settings](docs/screenshots/settings-calendar.png) |
 
 ## Building and testing
 
@@ -25,9 +25,9 @@ targetSdk 37, minSdk 26.
 ```sh
 cd android
 ./gradlew :app:installDebug                       # on a connected phone or emulator
-./gradlew :core:test :app:testDebugUnitTest       # every JVM test (148)
+./gradlew :core:test :app:testDebugUnitTest       # every JVM test (212)
 ./gradlew :app:lintDebug                          # lint; a warning fails the build
-./gradlew :app:connectedDebugAndroidTest          # Room, notification, restore and Compose tests (21)
+./gradlew :app:connectedDebugAndroidTest          # Room, notification, restore, calendar and Compose tests (24)
 ./gradlew :app:assembleRelease                    # minified with R8, unsigned
 ```
 
@@ -61,7 +61,8 @@ Two modules:
     anchors and last nudge. A unique key on (task, original day) stops a day from getting two
     rows. Rows are written out a day ahead (tomorrow's, for the heads-up); later repeats are
     worked out from the task's rule when the calendar needs them. Settings live in a Preferences
-    DataStore. The schema is exported to `app/schemas`.
+    DataStore. The schema is exported to `app/schemas`; version 2 added `calendar_links` by an
+    auto-migration.
   - `nudge/NudgeService`: the one place that changes what's scheduled, one change at a time.
     `reconcile()` writes out the coming days, posts each occurrence's due nudge, and sets one
     exact alarm per occurrence for its next nudge. It leaves a task's earlier open days quiet:
@@ -93,6 +94,21 @@ Two modules:
     rows are read inside the composition, keyed on a version every change bumps: Glance
     recomposes an open session rather than calling `provideGlance` again. WorkManager 2.12.0 is
     declared because Glance's own version crashes a minified build at launch.
+  - `ui/quickadd/`: Say a task. The phone's speech recognizer (`RecognizerIntent`, through an
+    activity result) turns speech into a sentence; typing works too. `core`'s `SpokenTasks` reads
+    the sentence as a task by rules (days, times, repeats, the title that's left), and the screen
+    shows what it understood, each part changeable by hand and then held against the parser. The
+    launcher's "Say a task" shortcut opens it listening. The form lives in the `SavedStateHandle`.
+  - `calendar/`: the Google Calendar channel, through the phone's calendar provider
+    (`CalendarContract`), so the app never talks to Google: the account's own sync adapter does.
+    `CalendarSync` imports the watched calendars' events as tasks, writes a spoken task out as an
+    event, and keeps a linked one-off task and its event following each other (a move moves the
+    event, Done puts "✓ " in front of its title, a renamed or moved event renames or moves the
+    task). `calendar_links` remembers each pair with what both sides last agreed on, which is how
+    a change on one side is told from a change on the other. It runs when the app opens, after
+    every change to a task (`NudgeService.onTasksChanged`), when the calendar settings change, and
+    every fifteen minutes from WorkManager while anything is watched. A restore drops the links:
+    another phone's calendar has other ids.
 
 ### Choices where docs/behaviour.md is silent
 
@@ -129,6 +145,26 @@ Smaller choices of this app, beyond the spec:
 - In the app, Snooze is offered for a task due today or overdue. "Mark as not done" reopens a
   Done task. The alarm screen also has "Stop the alarm", which silences it and leaves the task
   in the shade.
+
+## Saying a task, and Google Calendar
+
+What docs/behaviour.md says, as this app does it:
+
+- **Say a task:** the mic on Today, or long-press the icon for "Say a task". Google's recognizer
+  (or whichever the phone has) listens; without one the screen says so and the sentence is typed.
+  English only, as the parser is. The recognizer itself decides the language it hears.
+- **Google Calendar:** Settings, "Google Calendar". The first tap asks for calendar access (both
+  permissions, one prompt; refused twice, the row sends to the app's settings page). Then "Add
+  spoken tasks to" picks a calendar, and "Take tasks from" switches calendars on. The calendars
+  are the phone's: a Google account's, once Calendar sync is on for it in the phone's settings,
+  and local ones.
+- **With an assistant:** Gemini or Google Assistant add to the account's primary calendar ("add
+  renew the parking permit on Thursday at 10 to my calendar"), so watch that one, or make an
+  "Ar Daivitsko" calendar in Google Calendar and tell the assistant to add there. The task arrives
+  within fifteen minutes (WorkManager's shortest period), or when the app is opened.
+- **Done** marks the event "✓ Renew the parking permit" rather than deleting it, so the calendar
+  keeps the day's record. A task deleted here leaves its event; an event deleted there leaves the
+  task.
 
 ## What was checked on the Fleet_API36 emulator (Android 16, API 36)
 
@@ -184,6 +220,17 @@ I added tasks through the app as a user would, and moved the clock with
   Undo move put the day, the state and the 13:00 alarm back.
 - **Looks:** light, dark and font scale 2.0 on every screen; times follow the phone's 12-hour
   setting.
+- **Saying a task, and the calendar channel (10 November):** a local calendar on the emulator
+  stood in for a Google account's. Settings asked for calendar access with Android's prompt, then
+  listed the calendar; it was chosen for spoken tasks and switched on. An event added to it from
+  outside the app, as an assistant would ("Pay the electricity bill", all-day, today), was a task
+  on Today the next time the app came to the front, due by the day's end; Done on Today put "✓ "
+  in front of the event's title. Typed on the Say a task screen, "renew the parking permit on
+  thursday at 10" was understood as "Renew the parking permit", Thursday 12 November, 10:00, once,
+  with the calendar switch on; Add made the task and an event at 10:00 that Thursday. The
+  launcher shortcut opened the screen listening. The recognizer wasn't spoken to: its result is
+  stood in for in `QuickAddTest` by Espresso Intents, which answers the recognizer intent with a
+  sentence.
 - **The minified release build** (R8, signed with the debug key) launched, ran its screens and
   drew the widget, with nothing in the crash buffer. WorkManager resolves to 2.12.0.
 
@@ -205,6 +252,9 @@ Bugs these checks found, fixed in their own commits:
   can refuse).
 - A restore from Google's own backup on a real phone: the restores above used the local
   transport.
+- The calendar channel with a real Google account and an assistant: the emulator has neither.
+  Gemini adding to the primary calendar, and that becoming a task, is the first thing to try on
+  the S24.
 - Snooze was tested in ViewModel tests, not tapped on the emulator. The heads-up the evening
   before, daylight-saving days and monthly repeats were tested in JVM tests only.
 - Samsung's own battery lists ("Sleeping apps", "Deep sleeping apps") are separate from
