@@ -13,7 +13,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 
 /**
  * The Google Calendar channel, through the phone's calendar provider.
@@ -104,8 +106,7 @@ class CalendarSync(
         val watched = current.calendar.watchedCalendarIds
         if (watched.isEmpty()) return
         val linked = links.all().map { it.eventId }.toSet()
-        val from = today.minusDays(1).atStartOfDay(zone).toInstant()
-        val to = today.plusDays(DAYS_AHEAD).atStartOfDay(zone).toInstant()
+        val (from, to) = importWindow(today, zone)
         for (event in provider.events(watched, from, to)) {
             if (event.id in linked || event.title.startsWith(EventMapping.DONE_MARK)) continue
             val task = EventMapping.importedTask(event, today, zone, current.defaults, now) ?: continue
@@ -134,8 +135,15 @@ class CalendarSync(
         return EventMapping.taskSide(task, day, done = occurrence?.state == OccurrenceState.DONE)
     }
 
-    private companion object {
+    companion object {
         /** How far ahead a watched calendar's events become tasks. */
-        const val DAYS_AHEAD = 366L
+        private const val DAYS_AHEAD = 366L
+
+        /** The events a watched calendar gives: from yesterday to a year ahead. */
+        fun importWindow(today: LocalDate, zone: ZoneId): Pair<Instant, Instant> =
+            today.minusDays(1).atStartOfDay(zone).toInstant() to today.plusDays(DAYS_AHEAD).atStartOfDay(zone).toInstant()
+
+        /** How many of [events] would become tasks: the ones not already ticked off. */
+        fun importable(events: List<CalendarEvent>): Int = events.count { !it.title.startsWith(EventMapping.DONE_MARK) }
     }
 }

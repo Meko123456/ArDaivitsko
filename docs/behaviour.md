@@ -162,10 +162,13 @@ Settings, once calendar access is allowed:
 - "Add spoken tasks to" names a calendar. A spoken task then also goes there as an event, all-day
   when it has no time, otherwise an hour from its time, repeating as the task does. The screen has
   a switch to leave one out.
-- "Take tasks from" switches each calendar on or off. Its events, from yesterday to a year ahead,
-  become tasks here: one each, with the event's title and note, due at its time or by the day's end
-  for an all-day one, repeating when the event repeats every day, every week or every month (other
-  rules come once, on the first day); a repeating event starts here on its next day, not years back.
+- "Take tasks from" switches each calendar on or off. Switching one on first says what that
+  means, "12 events from yesterday to a year ahead become tasks here", and waits for Add them or
+  Cancel, since a main calendar holds a year of appointments that would each start nudging; off
+  needs no question. Watched, its events in that window become tasks here: one each, with the
+  event's title and note, due at its time or by the day's end for an all-day one, repeating when
+  the event repeats every day, every week or every month (other rules come once, on the first day);
+  a repeating event starts here on its next day, not years back.
   So an assistant that adds to the calendar ("add renew the parking permit on Thursday at 10 to
   my Ar Daivitsko calendar") adds here too, within fifteen minutes in the background, or at once
   when the app opens.

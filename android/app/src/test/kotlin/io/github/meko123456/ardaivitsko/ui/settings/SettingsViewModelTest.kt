@@ -3,6 +3,8 @@ package io.github.meko123456.ardaivitsko.ui.settings
 import io.github.meko123456.ardaivitsko.Harness
 import io.github.meko123456.ardaivitsko.MainDispatcherRule
 import io.github.meko123456.ardaivitsko.at
+import io.github.meko123456.ardaivitsko.calendar.CalendarInfo
+import io.github.meko123456.ardaivitsko.day
 import io.github.meko123456.ardaivitsko.keepCollecting
 import io.github.meko123456.ardaivitsko.nudge.Abilities
 import io.github.meko123456.ardaivitsko.task
@@ -14,6 +16,7 @@ import java.time.LocalTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -22,7 +25,7 @@ class SettingsViewModelTest {
     @get:Rule val main = MainDispatcherRule()
 
     private fun Harness.viewModel(abilities: () -> Abilities) =
-        SettingsViewModel(settings, service, abilities, provider, calendar, io = UnconfinedTestDispatcher())
+        SettingsViewModel(settings, service, abilities, provider, calendar, time, io = UnconfinedTestDispatcher())
 
     @Test
     fun `quiet hours move the next nudge and fire nothing held back`() = runTest {
@@ -77,5 +80,36 @@ class SettingsViewModelTest {
         assertTrue(vm.state.value.abilities.notifications)
         assertTrue(vm.state.value.abilities.fullScreen)
         assertTrue(vm.state.value.abilities.batteryUnrestricted)
+    }
+
+    @Test
+    fun `watching a calendar first says how many events become tasks, and waits for the answer`() = runTest {
+        val h = Harness(at("2026-11-11 09:00"))
+        h.provider.calendars += CalendarInfo(7, "Merab", "merab@example.com", writable = true)
+        h.provider.put(7, "Dentist", day("2026-11-12"), LocalTime.of(15, 30))
+        h.provider.put(7, "Team lunch", day("2027-03-01"))
+        h.provider.put(7, "✓ Done already", day("2026-11-13"))
+        h.provider.put(7, "Last month", day("2026-10-01"))
+        val vm = h.viewModel { Abilities(notifications = true, exactAlarms = true, fullScreen = true, batteryUnrestricted = true, calendar = true) }
+        keepCollecting(vm.state)
+
+        vm.setWatched(7, on = true)
+
+        assertEquals(WatchProposal(h.provider.calendars.single(), events = 2), vm.state.value.watchProposal)
+        assertTrue(vm.state.value.settings.calendar.watchedCalendarIds.isEmpty())
+
+        vm.dismissWatch()
+        assertNull(vm.state.value.watchProposal)
+        assertTrue(vm.state.value.settings.calendar.watchedCalendarIds.isEmpty())
+
+        vm.setWatched(7, on = true)
+        vm.confirmWatch()
+        assertNull(vm.state.value.watchProposal)
+        assertEquals(setOf(7L), vm.state.value.settings.calendar.watchedCalendarIds)
+
+        // Off needs no question.
+        vm.setWatched(7, on = false)
+        assertNull(vm.state.value.watchProposal)
+        assertTrue(vm.state.value.settings.calendar.watchedCalendarIds.isEmpty())
     }
 }

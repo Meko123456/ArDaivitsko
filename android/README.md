@@ -155,9 +155,10 @@ What docs/behaviour.md says, as this app does it:
   English only, as the parser is. The recognizer itself decides the language it hears.
 - **Google Calendar:** Settings, "Google Calendar". The first tap asks for calendar access (both
   permissions, one prompt; refused twice, the row sends to the app's settings page). Then "Add
-  spoken tasks to" picks a calendar, and "Take tasks from" switches calendars on. The calendars
-  are the phone's: a Google account's, once Calendar sync is on for it in the phone's settings,
-  and local ones.
+  spoken tasks to" picks a calendar, and "Take tasks from" switches calendars on, after saying
+  how many events that brings in ("12 events from yesterday to a year ahead become tasks here")
+  and waiting for Add them. The calendars are the phone's: a Google account's, once Calendar
+  sync is on for it in the phone's settings, and local ones.
 - **With an assistant:** Gemini or Google Assistant add to the account's primary calendar ("add
   renew the parking permit on Thursday at 10 to my calendar"), so watch that one, or make an
   "Ar Daivitsko" calendar in Google Calendar and tell the assistant to add there. The task arrives

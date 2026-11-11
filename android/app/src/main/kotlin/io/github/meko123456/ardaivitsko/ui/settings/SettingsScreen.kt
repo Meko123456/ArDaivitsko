@@ -191,6 +191,24 @@ fun SettingsScreen(
         SettingsPicker.DEFAULT_DEADLINE -> settings.defaults.deadline
         null -> null
     }
+    state.watchProposal?.let { proposal ->
+        val events = proposal.events
+        AlertDialog(
+            onDismissRequest = viewModel::dismissWatch,
+            title = { Text(proposal.calendar.name) },
+            text = {
+                Text(
+                    when (events) {
+                        0 -> "No events from yesterday to a year ahead. Events added to it later become tasks here."
+                        1 -> "1 event from yesterday to a year ahead becomes a task here, nudging on its day. Events added later follow."
+                        else -> "$events events from yesterday to a year ahead become tasks here, each nudging on its day. Events added later follow."
+                    },
+                )
+            },
+            confirmButton = { TextButton(onClick = viewModel::confirmWatch) { Text(if (events == 0) "Watch it" else "Add them") } },
+            dismissButton = { TextButton(onClick = viewModel::dismissWatch) { Text("Cancel") } },
+        )
+    }
     if (choosingCalendar) {
         CalendarChoiceDialog(
             calendars = state.calendars.filter { it.writable },

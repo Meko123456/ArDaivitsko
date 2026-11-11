@@ -169,7 +169,7 @@ fun AppNavHost(
             composable<SettingsRoute> {
                 SettingsScreen(
                     viewModel = viewModel {
-                        SettingsViewModel(container.settings, container.service, container.abilities::current, container.calendarProvider, container.calendarSync)
+                        SettingsViewModel(container.settings, container.service, container.abilities::current, container.calendarProvider, container.calendarSync, container.time)
                     },
                     versionName = context.versionName(),
                     bottomBar = { TopLevelBar(TopLevel.SETTINGS, navController) },
